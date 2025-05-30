@@ -6,6 +6,7 @@ import UserBehavior from "@/components/UserBehavior";
 import ThreatDetection from "@/components/ThreatDetection";
 import SecurityEvents from "@/components/SecurityEvents";
 import UserManagement from "@/components/UserManagement";
+import SecurityScenarioAnalysis from "@/components/SecurityScenarioAnalysis";
 import { Shield } from "lucide-react";
 
 const Index = () => {
@@ -28,8 +29,11 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
-        <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 bg-slate-800/50 border border-slate-700">
+        <Tabs defaultValue="scenario" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-6 bg-slate-800/50 border border-slate-700">
+            <TabsTrigger value="scenario" className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white">
+              Live Scenario
+            </TabsTrigger>
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white">
               Dashboard
             </TabsTrigger>
@@ -46,6 +50,10 @@ const Index = () => {
               User Management
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="scenario">
+            <SecurityScenarioAnalysis />
+          </TabsContent>
 
           <TabsContent value="dashboard">
             <Dashboard />

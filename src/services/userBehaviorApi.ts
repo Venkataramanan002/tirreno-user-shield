@@ -1,28 +1,24 @@
 
-import { apiClient } from './api';
+import { mockApiService } from './mockApiService';
 
 export interface UserBehaviorMetrics {
-  avgSessionDuration: string;
-  pageViewsPerSession: string;
+  averageSessionDuration: string;
+  pageViewsPerSession: number;
   bounceRate: string;
-  suspiciousPatterns: string;
-  sessionDurationTrend: string;
-  pageViewsTrend: string;
-  bounceRateTrend: string;
-  suspiciousPatternsTrend: string;
+  suspiciousPatterns: number;
 }
 
-export interface SessionDataPoint {
+export interface SessionData {
   time: string;
   sessions: number;
   anomalies: number;
 }
 
-export interface UserProfile {
+export interface User {
   id: string;
   email: string;
   riskScore: number;
-  status: 'normal' | 'warning' | 'suspicious';
+  status: 'normal' | 'suspicious' | 'blocked';
   location: string;
   device: string;
   lastActivity: string;
@@ -31,14 +27,11 @@ export interface UserProfile {
 
 export const userBehaviorApi = {
   getMetrics: (): Promise<UserBehaviorMetrics> => 
-    apiClient.get('/user-behavior/metrics'),
+    mockApiService.getUserBehaviorMetrics(),
   
-  getSessionData: (): Promise<SessionDataPoint[]> => 
-    apiClient.get('/user-behavior/sessions'),
+  getSessionData: (): Promise<SessionData[]> => 
+    mockApiService.getSessionData(),
   
-  getUsers: (search?: string): Promise<UserProfile[]> => 
-    apiClient.get(`/user-behavior/users${search ? `?search=${encodeURIComponent(search)}` : ''}`),
-  
-  getUserById: (userId: string): Promise<UserProfile> => 
-    apiClient.get(`/user-behavior/users/${userId}`),
+  getUsers: (searchTerm?: string): Promise<User[]> => 
+    mockApiService.getUsers(searchTerm),
 };

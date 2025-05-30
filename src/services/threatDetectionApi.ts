@@ -1,5 +1,5 @@
 
-import { apiClient } from './api';
+import { mockApiService } from './mockApiService';
 
 export interface ThreatType {
   type: string;
@@ -26,14 +26,23 @@ export interface DetectionRule {
 
 export const threatDetectionApi = {
   getThreatTypes: (): Promise<ThreatType[]> => 
-    apiClient.get('/threat-detection/types'),
+    mockApiService.getThreatTypes(),
   
   getHourlyData: (): Promise<HourlyThreatData[]> => 
-    apiClient.get('/threat-detection/hourly'),
+    mockApiService.getHourlyThreatData(),
   
   getDetectionRules: (): Promise<DetectionRule[]> => 
-    apiClient.get('/threat-detection/rules'),
+    mockApiService.getDetectionRules(),
   
-  updateRule: (ruleId: string, status: 'active' | 'inactive'): Promise<DetectionRule> => 
-    apiClient.put(`/threat-detection/rules/${ruleId}`, { status }),
+  updateRule: (ruleId: string, status: 'active' | 'inactive'): Promise<DetectionRule> => {
+    console.log(`Updating rule ${ruleId} to ${status}`);
+    return Promise.resolve({
+      id: ruleId,
+      name: "Updated Rule",
+      description: "Rule status updated",
+      status,
+      triggered: 0,
+      accuracy: 95
+    });
+  },
 };

@@ -1,5 +1,5 @@
 
-import { apiClient } from './api';
+import { mockApiService } from './mockApiService';
 
 export interface DashboardMetrics {
   activeUsers: number;
@@ -32,14 +32,14 @@ export interface TopThreat {
 
 export const dashboardApi = {
   getMetrics: (): Promise<DashboardMetrics> => 
-    apiClient.get('/dashboard/metrics'),
+    mockApiService.getDashboardMetrics(),
   
   getThreatTimeline: (): Promise<ThreatDataPoint[]> => 
-    apiClient.get('/dashboard/threat-timeline'),
+    mockApiService.getThreatTimeline(),
   
   getRiskDistribution: (): Promise<RiskDistribution[]> => 
-    apiClient.get('/dashboard/risk-distribution'),
+    mockApiService.getRiskDistribution(),
   
   getTopThreats: (): Promise<TopThreat[]> => 
-    apiClient.get('/dashboard/top-threats'),
+    mockApiService.getTopThreats(),
 };
