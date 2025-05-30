@@ -1,33 +1,32 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Shield, Users, Bot, AlertTriangle, TrendingUp, Activity } from "lucide-react";
+import { useDashboard } from "@/hooks/useDashboard";
 
 const Dashboard = () => {
-  // Mock data for demonstration
-  const threatData = [
-    { time: "00:00", threats: 12, blocked: 8 },
-    { time: "04:00", threats: 8, blocked: 6 },
-    { time: "08:00", threats: 25, blocked: 18 },
-    { time: "12:00", threats: 35, blocked: 28 },
-    { time: "16:00", threats: 42, blocked: 35 },
-    { time: "20:00", threats: 28, blocked: 22 },
-  ];
+  const { metrics, threatTimeline, riskDistribution, topThreats, isLoading, error } = useDashboard();
 
-  const riskDistribution = [
-    { name: "Low Risk", value: 68, color: "#10b981" },
-    { name: "Medium Risk", value: 25, color: "#f59e0b" },
-    { name: "High Risk", value: 7, color: "#ef4444" },
-  ];
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-cyan-500"></div>
+      </div>
+    );
+  }
 
-  const topThreats = [
-    { type: "Bot Traffic", count: 156, severity: "high" },
-    { type: "Brute Force", count: 89, severity: "high" },
-    { type: "Account Takeover", count: 45, severity: "medium" },
-    { type: "Fake Accounts", count: 32, severity: "medium" },
-    { type: "Session Hijacking", count: 18, severity: "low" },
-  ];
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <AlertTriangle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <p className="text-red-400 text-lg">Failed to load dashboard data</p>
+          <p className="text-slate-400 text-sm mt-2">Please check your API connection</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -39,9 +38,11 @@ const Dashboard = () => {
             <Users className="h-4 w-4 text-cyan-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">2,847</div>
+            <div className="text-2xl font-bold text-white">{metrics?.activeUsers?.toLocaleString() || '0'}</div>
             <p className="text-xs text-slate-400">
-              <span className="text-green-400">+12%</span> from last hour
+              <span className={metrics?.userGrowth?.startsWith('+') ? 'text-green-400' : 'text-red-400'}>
+                {metrics?.userGrowth || 'N/A'}
+              </span> from last hour
             </p>
           </CardContent>
         </Card>
@@ -52,9 +53,11 @@ const Dashboard = () => {
             <AlertTriangle className="h-4 w-4 text-red-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">342</div>
+            <div className="text-2xl font-bold text-white">{metrics?.threatsDetected?.toLocaleString() || '0'}</div>
             <p className="text-xs text-slate-400">
-              <span className="text-red-400">+8%</span> from last hour
+              <span className={metrics?.threatGrowth?.startsWith('+') ? 'text-red-400' : 'text-green-400'}>
+                {metrics?.threatGrowth || 'N/A'}
+              </span> from last hour
             </p>
           </CardContent>
         </Card>
@@ -65,9 +68,9 @@ const Dashboard = () => {
             <Shield className="h-4 w-4 text-green-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">298</div>
+            <div className="text-2xl font-bold text-white">{metrics?.threatsBlocked?.toLocaleString() || '0'}</div>
             <p className="text-xs text-slate-400">
-              <span className="text-green-400">87%</span> success rate
+              <span className="text-green-400">{metrics?.blockRate || 'N/A'}</span> success rate
             </p>
           </CardContent>
         </Card>
@@ -78,9 +81,9 @@ const Dashboard = () => {
             <Bot className="h-4 w-4 text-orange-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">156</div>
+            <div className="text-2xl font-bold text-white">{metrics?.botTraffic?.toLocaleString() || '0'}</div>
             <p className="text-xs text-slate-400">
-              <span className="text-orange-400">24%</span> of total traffic
+              <span className="text-orange-400">{metrics?.botPercentage || 'N/A'}</span> of total traffic
             </p>
           </CardContent>
         </Card>
@@ -101,7 +104,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={threatData}>
+              <LineChart data={threatTimeline || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis dataKey="time" stroke="#9ca3af" />
                 <YAxis stroke="#9ca3af" />
@@ -135,7 +138,7 @@ const Dashboard = () => {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={riskDistribution}
+                  data={riskDistribution || []}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -143,7 +146,7 @@ const Dashboard = () => {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {riskDistribution.map((entry, index) => (
+                  {(riskDistribution || []).map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -158,7 +161,7 @@ const Dashboard = () => {
               </PieChart>
             </ResponsiveContainer>
             <div className="flex justify-center space-x-4 mt-4">
-              {riskDistribution.map((item, index) => (
+              {(riskDistribution || []).map((item, index) => (
                 <div key={index} className="flex items-center space-x-2">
                   <div 
                     className="w-3 h-3 rounded-full" 
@@ -182,7 +185,7 @@ const Dashboard = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {topThreats.map((threat, index) => (
+            {(topThreats || []).map((threat, index) => (
               <div key={index} className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg">
                 <div className="flex items-center space-x-3">
                   <div className="text-lg font-semibold text-white">{index + 1}</div>
