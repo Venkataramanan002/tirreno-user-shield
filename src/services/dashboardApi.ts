@@ -2,42 +2,39 @@
 import { mockApiService } from './mockApiService';
 
 export interface DashboardMetrics {
+  totalUsers: number;
   activeUsers: number;
+  riskScore: number;
   threatsDetected: number;
-  threatsBlocked: number;
-  botTraffic: number;
-  userGrowth: string;
-  threatGrowth: string;
-  blockRate: string;
-  botPercentage: string;
+  falsePositives: number;
 }
 
-export interface ThreatDataPoint {
+export interface ThreatTimelineItem {
   time: string;
-  threats: number;
-  blocked: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
 }
 
-export interface RiskDistribution {
-  name: string;
+export interface RiskDistributionItem {
+  type: string;
   value: number;
-  color: string;
 }
 
 export interface TopThreat {
-  type: string;
-  count: number;
-  severity: 'high' | 'medium' | 'low';
+  source: string;
+  value: number;
 }
 
 export const dashboardApi = {
   getMetrics: (): Promise<DashboardMetrics> => 
     mockApiService.getDashboardMetrics(),
   
-  getThreatTimeline: (): Promise<ThreatDataPoint[]> => 
+  getThreatTimeline: (): Promise<ThreatTimelineItem[]> => 
     mockApiService.getThreatTimeline(),
   
-  getRiskDistribution: (): Promise<RiskDistribution[]> => 
+  getRiskDistribution: (): Promise<RiskDistributionItem[]> => 
     mockApiService.getRiskDistribution(),
   
   getTopThreats: (): Promise<TopThreat[]> => 

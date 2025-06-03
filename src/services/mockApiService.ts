@@ -187,6 +187,49 @@ export const mockApiService = {
     ];
   },
 
+  getThreatTypes: async () => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return [
+      { type: "Malware", detected: 45, blocked: 42, severity: "high" as const },
+      { type: "Phishing", detected: 32, blocked: 30, severity: "high" as const },
+      { type: "DDoS", detected: 18, blocked: 15, severity: "medium" as const },
+      { type: "Bot Traffic", detected: 67, blocked: 60, severity: "low" as const }
+    ];
+  },
+
+  getHourlyThreatData: async () => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return [
+      { hour: "14:00", bots: 12, fraud: 5, attacks: 3 },
+      { hour: "15:00", bots: 18, fraud: 8, attacks: 4 },
+      { hour: "16:00", bots: 25, fraud: 12, attacks: 7 },
+      { hour: "17:00", bots: 42, fraud: 15, attacks: 9 },
+      { hour: "18:00", bots: 28, fraud: 9, attacks: 5 }
+    ];
+  },
+
+  getDetectionRules: async () => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return [
+      {
+        id: "rule_001",
+        name: "Brute Force Detection",
+        description: "Detects multiple failed login attempts",
+        status: "active" as const,
+        triggered: 15,
+        accuracy: 94
+      },
+      {
+        id: "rule_002", 
+        name: "Suspicious IP Detection",
+        description: "Flags known malicious IP addresses",
+        status: "active" as const,
+        triggered: 8,
+        accuracy: 98
+      }
+    ];
+  },
+
   getThreatData: async (): Promise<ThreatData[]> => {
     await new Promise(resolve => setTimeout(resolve, 500));
     return [

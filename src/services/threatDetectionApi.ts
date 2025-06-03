@@ -1,6 +1,27 @@
 
 import { mockApiService } from './mockApiService';
 
+export interface ThreatData {
+  id: string;
+  timestamp: string;
+  threatType: string;
+  target: string;
+  status: string;
+  affectedSystems: number;
+  potentialLoss: string;
+  description: string;
+}
+
+export interface ThreatAlert {
+  id: string;
+  timestamp: string;
+  user: string;
+  alertType: string;
+  description: string;
+  severity: 'high' | 'medium' | 'low' | 'critical';
+  status: string;
+}
+
 export interface ThreatType {
   type: string;
   detected: number;
@@ -33,6 +54,12 @@ export const threatDetectionApi = {
   
   getDetectionRules: (): Promise<DetectionRule[]> => 
     mockApiService.getDetectionRules(),
+  
+  getThreatData: (): Promise<ThreatData[]> =>
+    mockApiService.getThreatData(),
+    
+  getThreatAlerts: (): Promise<ThreatAlert[]> =>
+    mockApiService.getThreatAlerts(),
   
   updateRule: (ruleId: string, status: 'active' | 'inactive'): Promise<DetectionRule> => {
     console.log(`Updating rule ${ruleId} to ${status}`);

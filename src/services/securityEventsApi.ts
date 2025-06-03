@@ -1,22 +1,21 @@
 
-import { apiClient } from './api';
+import { mockApiService } from './mockApiService';
 
 export interface SecurityEvent {
   id: string;
   timestamp: string;
-  type: string;
-  severity: 'high' | 'medium' | 'low';
-  user: string;
-  ip: string;
-  location: string;
+  source: string;
+  event: string;
   description: string;
-  status: 'blocked' | 'flagged' | 'investigating' | 'monitoring';
-  riskScore: number;
+  severity: 'high' | 'medium' | 'low' | 'critical';
+  user: string;
+  ipAddress: string;
+  location: string;
 }
 
 export interface EventFilters {
   search?: string;
-  severity?: 'all' | 'high' | 'medium' | 'low';
+  severity?: 'all' | 'high' | 'medium' | 'low' | 'critical';
   status?: string;
   dateRange?: {
     start: string;
@@ -26,21 +25,17 @@ export interface EventFilters {
 
 export const securityEventsApi = {
   getEvents: (filters?: EventFilters): Promise<SecurityEvent[]> => {
-    const params = new URLSearchParams();
-    if (filters?.search) params.append('search', filters.search);
-    if (filters?.severity && filters.severity !== 'all') params.append('severity', filters.severity);
-    if (filters?.status) params.append('status', filters.status);
-    if (filters?.dateRange) {
-      params.append('startDate', filters.dateRange.start);
-      params.append('endDate', filters.dateRange.end);
-    }
-    
-    return apiClient.get(`/security-events${params.toString() ? `?${params.toString()}` : ''}`);
+    return mockApiService.getSecurityEvents();
   },
   
-  getEventById: (eventId: string): Promise<SecurityEvent> => 
-    apiClient.get(`/security-events/${eventId}`),
+  getEventById: (eventId: string): Promise<SecurityEvent> => {
+    return mockApiService.getSecurityEvents().then(events => 
+      events.find(e => e.id === eventId) || events[0]
+    );
+  },
   
-  updateEventStatus: (eventId: string, status: string): Promise<SecurityEvent> => 
-    apiClient.put(`/security-events/${eventId}/status`, { status }),
+  updateEventStatus: (eventId: string, status: string): Promise<SecurityEvent> => {
+    console.log(`Updating event ${eventId} status to ${status}`);
+    return mockApiService.getSecurityEvents().then(events => events[0]);
+  },
 };

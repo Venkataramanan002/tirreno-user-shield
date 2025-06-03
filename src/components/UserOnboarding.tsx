@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Shield, Mail, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { downloadSQL } from "@/utils/sqlExporter";
 
 interface UserOnboardingProps {
   onUserVerified: () => void;
@@ -25,6 +25,9 @@ const UserOnboarding = ({ onUserVerified }: UserOnboardingProps) => {
     verificationCode: ""
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isVerificationSent, setIsVerificationSent] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
   const { toast } = useToast();
 
   const handleInputChange = (field: string, value: string) => {
@@ -74,6 +77,36 @@ const UserOnboarding = ({ onUserVerified }: UserOnboardingProps) => {
     }
     
     setIsLoading(false);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
+    setSubmitMessage("");
+
+    // Simulate API call
+    setTimeout(() => {
+      setIsSubmitting(false);
+      setIsVerificationSent(true);
+      setSubmitMessage(`Verification email sent to ${formData.email}. Please check your inbox and click the verification link to proceed.`);
+      
+      // Generate and download SQL file with user data
+      downloadSQL(formData, {
+        submissionTime: new Date().toISOString(),
+        platform: 'Security Analysis Platform'
+      });
+      
+      console.log('User registration data:', formData);
+      console.log('SQL file generated and downloaded');
+    }, 2000);
+  };
+
+  const validateForm = () => {
+    // Add your validation logic here
+    return true; // Placeholder for validation logic
   };
 
   return (
