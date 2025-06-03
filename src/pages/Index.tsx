@@ -7,9 +7,17 @@ import ThreatDetection from "@/components/ThreatDetection";
 import SecurityEvents from "@/components/SecurityEvents";
 import UserManagement from "@/components/UserManagement";
 import SecurityScenarioAnalysis from "@/components/SecurityScenarioAnalysis";
+import UserOnboarding from "@/components/UserOnboarding";
 import { Shield } from "lucide-react";
+import { useState } from "react";
 
 const Index = () => {
+  const [isUserVerified, setIsUserVerified] = useState(false);
+
+  if (!isUserVerified) {
+    return <UserOnboarding onUserVerified={() => setIsUserVerified(true)} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
@@ -20,7 +28,7 @@ const Index = () => {
               <Shield className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">Tirreno Security Platform</h1>
+              <h1 className="text-2xl font-bold text-white">Security Analysis Platform</h1>
               <p className="text-sm text-slate-400">Advanced User Behavior Analytics & Threat Detection</p>
             </div>
           </div>
