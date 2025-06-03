@@ -1,3 +1,4 @@
+
 import { DashboardMetrics, ThreatTimelineItem, RiskDistributionItem, TopThreat } from './dashboardApi';
 import { SecurityEvent } from './securityEventsApi';
 import { ThreatData, ThreatAlert } from './threatDetectionApi';
@@ -33,27 +34,6 @@ export interface User {
 // Store for personalized data based on user email
 let currentUserEmail: string | null = null;
 let personalizedData: any = {};
-
-export const setCurrentUser = (email: string) => {
-  currentUserEmail = email;
-  personalizedData = generatePersonalizedData(email);
-};
-
-const generatePersonalizedData = (email: string) => {
-  const riskScore = calculateRiskScore(email);
-  const threats = generateThreatsForUser(email);
-  const events = generateEventsForUser(email, riskScore);
-  
-  return {
-    riskScore,
-    threats,
-    events,
-    metrics: generateMetricsForUser(email, riskScore),
-    timeline: generateTimelineForUser(email),
-    distribution: generateDistributionForUser(email),
-    topThreats: generateTopThreatsForUser(email)
-  };
-};
 
 const calculateRiskScore = (email: string): number => {
   let score = Math.random() * 30 + 20; // Base score 20-50
@@ -133,6 +113,27 @@ const generateRandomIP = (): string => {
 const getRandomLocation = (): string => {
   const locations = ["New York, USA", "London, UK", "Tokyo, Japan", "Sydney, Australia", "Berlin, Germany"];
   return locations[Math.floor(Math.random() * locations.length)];
+};
+
+const generatePersonalizedData = (email: string) => {
+  const riskScore = calculateRiskScore(email);
+  const threats = generateThreatsForUser(email);
+  const events = generateEventsForUser(email, riskScore);
+  
+  return {
+    riskScore,
+    threats,
+    events,
+    metrics: generateMetricsForUser(email, riskScore),
+    timeline: generateTimelineForUser(email),
+    distribution: generateDistributionForUser(email),
+    topThreats: generateTopThreatsForUser(email)
+  };
+};
+
+export const setCurrentUser = (email: string) => {
+  currentUserEmail = email;
+  personalizedData = generatePersonalizedData(email);
 };
 
 export const mockApiService = {
@@ -336,5 +337,3 @@ export const mockApiService = {
     ];
   }
 };
-
-export { setCurrentUser };
