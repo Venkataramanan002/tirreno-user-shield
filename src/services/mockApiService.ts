@@ -30,50 +30,155 @@ export interface User {
   lastActivity?: string;
 }
 
+// Store for personalized data based on user email
+let currentUserEmail: string | null = null;
+let personalizedData: any = {};
+
+export const setCurrentUser = (email: string) => {
+  currentUserEmail = email;
+  personalizedData = generatePersonalizedData(email);
+};
+
+const generatePersonalizedData = (email: string) => {
+  const riskScore = calculateRiskScore(email);
+  const threats = generateThreatsForUser(email);
+  const events = generateEventsForUser(email, riskScore);
+  
+  return {
+    riskScore,
+    threats,
+    events,
+    metrics: generateMetricsForUser(email, riskScore),
+    timeline: generateTimelineForUser(email),
+    distribution: generateDistributionForUser(email),
+    topThreats: generateTopThreatsForUser(email)
+  };
+};
+
+const calculateRiskScore = (email: string): number => {
+  let score = Math.random() * 30 + 20; // Base score 20-50
+  
+  if (email.includes('admin') || email.includes('root')) score += 30;
+  if (email.includes('.gov') || email.includes('.mil')) score += 25;
+  if (email.includes('temp') || email.includes('test')) score += 35;
+  if (email.length < 10) score += 15;
+  if (email.includes('security') || email.includes('it')) score += 20;
+  
+  return Math.min(100, Math.round(score));
+};
+
+const generateThreatsForUser = (email: string) => {
+  const baseThreats = ['Phishing', 'Malware', 'Brute Force', 'Social Engineering'];
+  if (email.includes('admin')) baseThreats.push('Privilege Escalation', 'Data Exfiltration');
+  if (email.includes('.gov')) baseThreats.push('APT Attack', 'Nation State Actor');
+  
+  return baseThreats.slice(0, 3 + Math.floor(Math.random() * 3));
+};
+
+const generateEventsForUser = (email: string, riskScore: number) => {
+  const severity = riskScore > 70 ? 'high' : riskScore > 40 ? 'medium' : 'low';
+  return [
+    {
+      id: `SE_${email.split('@')[0]}_001`,
+      timestamp: new Date().toISOString(),
+      source: "Authentication System",
+      event: "Login Attempt",
+      description: `Login detected for ${email}`,
+      severity: severity as 'low' | 'medium' | 'high' | 'critical',
+      user: email,
+      ipAddress: generateRandomIP(),
+      location: getRandomLocation()
+    }
+  ];
+};
+
+const generateMetricsForUser = (email: string, riskScore: number) => ({
+  totalUsers: 1247,
+  activeUsers: 892,
+  riskScore: riskScore / 10,
+  threatsDetected: Math.floor(riskScore / 2),
+  falsePositives: Math.floor(Math.random() * 5),
+  threatsBlocked: Math.floor(riskScore / 2.5),
+  botTraffic: Math.floor(riskScore / 3),
+  userGrowth: riskScore > 50 ? "-5%" : "+12%",
+  threatGrowth: `+${Math.floor(riskScore / 5)}%`,
+  blockRate: `${Math.min(95, 80 + Math.floor(riskScore / 5))}%`,
+  botPercentage: `${Math.floor(riskScore / 4)}%`
+});
+
+const generateTimelineForUser = (email: string) => [
+  { time: "14:00", threats: 12, blocked: 10 },
+  { time: "15:00", threats: 18, blocked: 15 },
+  { time: "16:00", threats: 25, blocked: 22 },
+  { time: "17:00", threats: Math.floor(personalizedData.riskScore || 50), blocked: Math.floor((personalizedData.riskScore || 50) * 0.8) },
+  { time: "18:00", threats: 28, blocked: 25 }
+];
+
+const generateDistributionForUser = (email: string) => [
+  { type: "Low Risk", name: "Low Risk", value: Math.max(10, 60 - (personalizedData.riskScore || 30)), color: "#10b981" },
+  { type: "Medium Risk", name: "Medium Risk", value: 25, color: "#f59e0b" },
+  { type: "High Risk", name: "High Risk", value: Math.min(40, personalizedData.riskScore || 15), color: "#ef4444" }
+];
+
+const generateTopThreatsForUser = (email: string) => [
+  { type: "Phishing Attempts", count: Math.floor((personalizedData.riskScore || 30) / 2), severity: 'high' as const },
+  { type: "Malware Detection", count: Math.floor((personalizedData.riskScore || 30) / 3), severity: 'critical' as const },
+  { type: "Brute Force", count: Math.floor((personalizedData.riskScore || 30) / 4), severity: 'medium' as const }
+];
+
+const generateRandomIP = (): string => {
+  return `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
+};
+
+const getRandomLocation = (): string => {
+  const locations = ["New York, USA", "London, UK", "Tokyo, Japan", "Sydney, Australia", "Berlin, Germany"];
+  return locations[Math.floor(Math.random() * locations.length)];
+};
+
 export const mockApiService = {
   getDashboardMetrics: async (): Promise<DashboardMetrics> => {
     await new Promise(resolve => setTimeout(resolve, 500));
-    return {
+    return personalizedData.metrics || {
       totalUsers: 1247,
       activeUsers: 892,
       riskScore: 7.8,
       threatsDetected: 56,
-      falsePositives: 2
+      falsePositives: 2,
+      threatsBlocked: 45,
+      botTraffic: 23,
+      userGrowth: "+12%",
+      threatGrowth: "+18%",
+      blockRate: "89%",
+      botPercentage: "12%"
     };
   },
 
   getThreatTimeline: async (): Promise<ThreatTimelineItem[]> => {
     await new Promise(resolve => setTimeout(resolve, 500));
-    return [
-      { time: "00:00", critical: 2, high: 5, medium: 12, low: 45 },
-      { time: "04:00", critical: 0, high: 3, medium: 7, low: 23 },
-      { time: "08:00", critical: 1, high: 8, medium: 15, low: 34 },
-      { time: "12:00", critical: 3, high: 12, medium: 23, low: 56 },
-      { time: "16:00", critical: 1, high: 5, medium: 18, low: 41 },
-      { time: "20:00", critical: 0, high: 2, medium: 10, low: 30 }
+    return personalizedData.timeline || [
+      { time: "14:00", threats: 12, blocked: 10 },
+      { time: "15:00", threats: 18, blocked: 15 },
+      { time: "16:00", threats: 25, blocked: 22 },
+      { time: "17:00", threats: 42, blocked: 38 },
+      { time: "18:00", threats: 28, blocked: 25 }
     ];
   },
 
   getRiskDistribution: async (): Promise<RiskDistributionItem[]> => {
     await new Promise(resolve => setTimeout(resolve, 500));
-    return [
-      { type: "Malware", value: 32 },
-      { type: "Phishing", value: 27 },
-      { type: "DDoS", value: 15 },
-      { type: "Insider Threat", value: 12 },
-      { type: "Data Breach", value: 9 },
-      { type: "Ransomware", value: 5 }
+    return personalizedData.distribution || [
+      { type: "Low Risk", name: "Low Risk", value: 45, color: "#10b981" },
+      { type: "Medium Risk", name: "Medium Risk", value: 35, color: "#f59e0b" },
+      { type: "High Risk", name: "High Risk", value: 20, color: "#ef4444" }
     ];
   },
 
   getTopThreats: async (): Promise<TopThreat[]> => {
     await new Promise(resolve => setTimeout(resolve, 500));
-    return [
-      { source: "China", value: 45 },
-      { source: "Russia", value: 30 },
-      { source: "North Korea", value: 15 },
-      { source: "Iran", value: 7 },
-      { source: "Nigeria", value: 3 }
+    return personalizedData.topThreats || [
+      { type: "Phishing Attempts", count: 32, severity: 'high' },
+      { type: "Malware Detection", count: 18, severity: 'critical' },
+      { type: "Brute Force", count: 12, severity: 'medium' }
     ];
   },
 
@@ -101,6 +206,26 @@ export const mockApiService = {
 
   getUsers: async () => {
     await new Promise(resolve => setTimeout(resolve, 800));
+    if (currentUserEmail) {
+      return [
+        {
+          id: `USER_${currentUserEmail.split('@')[0]}`,
+          userId: `USER_${currentUserEmail.split('@')[0]}`,
+          email: currentUserEmail,
+          deviceType: "Desktop",
+          ipAddress: generateRandomIP(),
+          location: getRandomLocation(),
+          deviceFingerprint: `FP_${Math.random().toString(36).substring(7)}`,
+          sessionStart: new Date().toISOString(),
+          riskScore: personalizedData.riskScore || 50,
+          status: personalizedData.riskScore > 70 ? "high-risk" : personalizedData.riskScore > 40 ? "suspicious" : "normal",
+          anomalies: personalizedData.threats || ["Behavioral Analysis Pending"],
+          activityLevel: "high" as const,
+          lastActivity: new Date().toISOString()
+        }
+      ];
+    }
+    
     return [
       {
         id: "USER_LegitCustomer_789",
@@ -112,77 +237,27 @@ export const mockApiService = {
         deviceFingerprint: "FP_BHQ654JKL",
         sessionStart: "2025-05-30 17:06:30",
         riskScore: 1.2,
-        status: "normal",
+        status: "normal" as const,
         anomalies: [],
-        activityLevel: "medium",
+        activityLevel: "medium" as const,
         lastActivity: "2025-05-30 17:07:45"
-      },
-      {
-        id: "USER_Suspicious_456",
-        userId: "USER_Suspicious_456", 
-        email: "suspicious.user@example.com",
-        deviceType: "Mobile",
-        ipAddress: "185.199.110.153",
-        location: "Moscow, Russia",
-        deviceFingerprint: "FP_SUSPICIOUS_123",
-        sessionStart: "2025-05-30 17:08:00",
-        riskScore: 9.1,
-        status: "suspicious",
-        anomalies: ["Multiple failed login attempts", "Login from suspicious IP", "Geo-location anomaly"],
-        activityLevel: "high"
-      },
-      {
-        id: "USER_Bot_Detection_321",
-        userId: "USER_Bot_Detection_321",
-        email: "bot.scraper@example.com", 
-        deviceType: "Desktop",
-        ipAddress: "104.28.249.200",
-        location: "Dublin, Ireland",
-        deviceFingerprint: "FP_GHIJ4567",
-        sessionStart: "2025-05-30 17:08:30",
-        riskScore: 8.8,
-        status: "high-risk",
-        anomalies: ["Extreme request rate", "Automated behavior pattern", "Sequential access pattern"],
-        activityLevel: "high"
       }
     ];
   },
 
   getSecurityEvents: async (): Promise<SecurityEvent[]> => {
     await new Promise(resolve => setTimeout(resolve, 500));
-    return [
+    return personalizedData.events || [
       {
         id: "SE_MalwareDetected_987",
         timestamp: "2025-05-30 17:10:00",
         source: "Endpoint Security",
         event: "Malware Detected",
         description: "A malware was detected on user's machine.",
-        severity: "critical",
+        severity: "critical" as const,
         user: "john.doe@example.com",
         ipAddress: "192.168.1.100",
         location: "New York, USA"
-      },
-      {
-        id: "SE_PhishingAttempt_654",
-        timestamp: "2025-05-30 17:12:30",
-        source: "Email Gateway",
-        event: "Phishing Attempt",
-        description: "A phishing email was detected and blocked.",
-        severity: "high",
-        user: "jane.doe@example.com",
-        ipAddress: "203.0.113.45",
-        location: "London, UK"
-      },
-      {
-        id: "SE_DDosAttack_321",
-        timestamp: "2025-05-30 17:15:00",
-        source: "Network Firewall",
-        event: "DDoS Attack",
-        description: "A distributed denial-of-service attack was detected and mitigated.",
-        severity: "critical",
-        user: "N/A",
-        ipAddress: "Multiple",
-        location: "Global"
       }
     ];
   },
@@ -242,26 +317,6 @@ export const mockApiService = {
         affectedSystems: 15,
         potentialLoss: "$500,000",
         description: "Ransomware attack targeting financial documents."
-      },
-      {
-        id: "TD_DataBreach_002",
-        timestamp: "2025-05-30 17:22:30",
-        threatType: "Data Breach",
-        target: "Customer Database",
-        status: "contained",
-        affectedSystems: 3,
-        potentialLoss: "Confidential",
-        description: "Unauthorized access to customer database."
-      },
-      {
-        id: "TD_InsiderThreat_003",
-        timestamp: "2025-05-30 17:25:00",
-        threatType: "Insider Threat",
-        target: "HR Department",
-        status: "investigating",
-        affectedSystems: 1,
-        potentialLoss: "Reputational Damage",
-        description: "Suspicious activity from an internal employee."
       }
     ];
   },
@@ -272,30 +327,14 @@ export const mockApiService = {
       {
         id: "TA_HighRiskLogin_001",
         timestamp: "2025-05-30 17:30:00",
-        user: "john.doe@example.com",
+        user: currentUserEmail || "john.doe@example.com",
         alertType: "High-Risk Login",
-        description: "Login from unusual location detected.",
-        severity: "high",
+        description: `Login from unusual location detected for ${currentUserEmail || "user"}`,
+        severity: "high" as const,
         status: "unresolved"
-      },
-      {
-        id: "TA_SuspiciousFileAccess_002",
-        timestamp: "2025-05-30 17:32:30",
-        user: "jane.doe@example.com",
-        alertType: "Suspicious File Access",
-        description: "Unusual access to sensitive files detected.",
-        severity: "medium",
-        status: "investigating"
-      },
-      {
-        id: "TA_MalwareActivity_003",
-        timestamp: "2025-05-30 17:35:00",
-        user: "N/A",
-        alertType: "Malware Activity",
-        description: "Malware activity detected on the network.",
-        severity: "critical",
-        status: "active"
       }
     ];
   }
 };
+
+export { setCurrentUser };

@@ -45,7 +45,85 @@ export interface BotDetection {
   confidence: string;
 }
 
-// Sample data based on the comprehensive security monitoring scenario
+// Dynamic sample data that adapts to current user
+export const getCurrentUserSession = (email?: string): UserSession => {
+  const defaultEmail = email || "user@example.com";
+  const riskScore = calculateDynamicRiskScore(defaultEmail);
+  
+  return {
+    userId: `USER_${defaultEmail.split('@')[0]}`,
+    email: defaultEmail,
+    deviceType: "Desktop (Chrome, Windows 10)",
+    ipAddress: generateRandomIP(),
+    location: getDynamicLocation(defaultEmail),
+    deviceFingerprint: `FP_${Math.random().toString(36).substring(7)}`,
+    sessionStart: new Date().toISOString(),
+    riskScore,
+    riskLevel: riskScore > 70 ? "Critical" : riskScore > 40 ? "High" : "Medium",
+    activities: generateDynamicEvents(defaultEmail, riskScore)
+  };
+};
+
+const calculateDynamicRiskScore = (email: string): number => {
+  let score = Math.random() * 30 + 30; // Base score 30-60
+  
+  if (email.includes('admin') || email.includes('root')) score += 25;
+  if (email.includes('.gov') || email.includes('.mil')) score += 20;
+  if (email.includes('temp') || email.includes('test')) score += 30;
+  if (email.includes('security') || email.includes('it')) score += 15;
+  if (email.length < 10) score += 10;
+  
+  return Math.min(100, Math.round(score));
+};
+
+const generateRandomIP = (): string => {
+  return `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
+};
+
+const getDynamicLocation = (email: string): string => {
+  const domains = email.split('@')[1] || '';
+  
+  if (domains.includes('.gov')) return "Washington, DC, USA";
+  if (domains.includes('.edu')) return "Boston, MA, USA";
+  if (domains.includes('.co.uk')) return "London, UK";
+  if (domains.includes('.de')) return "Berlin, Germany";
+  if (domains.includes('.au')) return "Sydney, Australia";
+  
+  const locations = ["New York, USA", "San Francisco, USA", "London, UK", "Tokyo, Japan", "Sydney, Australia"];
+  return locations[Math.floor(Math.random() * locations.length)];
+};
+
+const generateDynamicEvents = (email: string, riskScore: number): SecurityEvent[] => {
+  const severity = riskScore > 70 ? 'critical' : riskScore > 50 ? 'high' : riskScore > 30 ? 'medium' : 'low';
+  
+  return [
+    {
+      id: `evt_${Date.now()}_001`,
+      timestamp: new Date().toISOString(),
+      eventType: "User Authentication",
+      userId: `USER_${email.split('@')[0]}`,
+      ipAddress: generateRandomIP(),
+      location: getDynamicLocation(email),
+      severity: 'low',
+      status: "success",
+      details: `Successful login for ${email}`,
+    },
+    {
+      id: `evt_${Date.now()}_002`,
+      timestamp: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
+      eventType: "Risk Assessment",
+      userId: `USER_${email.split('@')[0]}`,
+      ipAddress: generateRandomIP(),
+      location: getDynamicLocation(email),
+      severity,
+      status: "detected",
+      details: `Risk score calculated: ${riskScore}/100 for user profile analysis`,
+      riskScore
+    }
+  ];
+};
+
+// Static sample data for fallback
 export const sampleSecurityEvents: SecurityEvent[] = [
   {
     id: "evt_001",
@@ -69,56 +147,10 @@ export const sampleSecurityEvents: SecurityEvent[] = [
     severity: "low",
     status: "success",
     details: "Successful login - Username: anjali.sharma@example.com, Method: Password, Latency: 300ms"
-  },
-  {
-    id: "evt_003",
-    timestamp: "2025-05-30 17:07:15",
-    eventType: "User Navigation",
-    userId: "USER_LegitCustomer_789",
-    ipAddress: "203.0.113.10",
-    location: "Bengaluru, India",
-    severity: "low",
-    status: "normal",
-    details: "User navigates to product page - Page View: /products/premium-service-plan"
-  },
-  {
-    id: "evt_004",
-    timestamp: "2025-05-30 17:08:00",
-    eventType: "Suspicious Login Attempt",
-    userId: "USER_LegitCustomer_789",
-    ipAddress: "185.199.110.153",
-    location: "Moscow, Russia",
-    severity: "high",
-    status: "blocked",
-    details: "Brute-force attempt detected - 5 attempts within 10 seconds, Invalid credentials",
-    riskScore: 91
-  },
-  {
-    id: "evt_005",
-    timestamp: "2025-05-30 17:08:30",
-    eventType: "API Rate Limit Exceeded",
-    ipAddress: "104.28.249.200",
-    location: "Dublin, Ireland",
-    deviceFingerprint: "FP_GHIJ4567",
-    severity: "medium",
-    status: "flagged",
-    details: "High traffic detected - 500 requests in 10 seconds to /api/v1/user/profiles",
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
   }
 ];
 
-export const sampleUserSession: UserSession = {
-  userId: "USER_LegitCustomer_789",
-  email: "anjali.sharma@example.com",
-  deviceType: "Desktop (Chrome, Windows 10)",
-  ipAddress: "203.0.113.10",
-  location: "Bengaluru, India",
-  deviceFingerprint: "FP_BHQ654JKL",
-  sessionStart: "2025-05-30 17:06:30",
-  riskScore: 91,
-  riskLevel: "Critical",
-  activities: sampleSecurityEvents.filter(e => e.userId === "USER_LegitCustomer_789")
-};
+export const sampleUserSession: UserSession = getCurrentUserSession();
 
 export const sampleThreatIntelligence: ThreatIntelligence[] = [
   {

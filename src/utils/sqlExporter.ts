@@ -1,160 +1,192 @@
 
-interface UserFormData {
-  name: string;
+export interface UserFormData {
+  firstName: string;
+  lastName: string;
+  name: string; // computed field
   email: string;
   phone: string;
   company: string;
   jobTitle: string;
-  securityConcerns: string[];
+  securityConcerns: string;
 }
 
-export const generateSecurityAnalysisSQL = (userData: UserFormData, analysisData: any) => {
-  const timestamp = new Date().toISOString();
+export interface AnalysisMetadata {
+  submissionTime: string;
+  platform: string;
+  analysisId?: string;
+  riskScore?: number;
+}
+
+export const downloadSQL = (formData: UserFormData, metadata: AnalysisMetadata) => {
+  const analysisId = `ANALYSIS_${Date.now()}`;
+  const riskScore = generateRiskScore(formData.email);
   
-  const sql = `-- Security Analysis Platform Data Export
--- Generated on: ${timestamp}
--- User: ${userData.name} (${userData.email})
+  const sqlContent = `-- Security Analysis Platform Database Export
+-- Generated on: ${metadata.submissionTime}
+-- Analysis ID: ${analysisId}
+-- User: ${formData.email}
 
--- Create database and tables if they don't exist
-CREATE DATABASE IF NOT EXISTS security_analysis;
-USE security_analysis;
+-- Create database schema
+CREATE DATABASE IF NOT EXISTS security_analysis_platform;
+USE security_analysis_platform;
 
--- Users table
+-- User information table
 CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    phone VARCHAR(50),
+    id VARCHAR(50) PRIMARY KEY,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    email VARCHAR(255) UNIQUE,
+    phone VARCHAR(20),
     company VARCHAR(255),
     job_title VARCHAR(255),
     security_concerns TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    risk_score DECIMAL(5,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Security Events table
+-- Security events table
 CREATE TABLE IF NOT EXISTS security_events (
     id VARCHAR(50) PRIMARY KEY,
-    timestamp DATETIME NOT NULL,
-    source VARCHAR(255),
-    event_type VARCHAR(255),
+    user_id VARCHAR(50),
+    timestamp TIMESTAMP,
+    event_type VARCHAR(100),
+    source VARCHAR(100),
     description TEXT,
-    severity ENUM('low', 'medium', 'high', 'critical') DEFAULT 'low',
-    user_email VARCHAR(255),
+    severity ENUM('low', 'medium', 'high', 'critical'),
     ip_address VARCHAR(45),
     location VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    status VARCHAR(50),
+    FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
--- User Sessions table
-CREATE TABLE IF NOT EXISTS user_sessions (
-    user_id VARCHAR(50) PRIMARY KEY,
-    email VARCHAR(255),
-    device_type VARCHAR(100),
-    ip_address VARCHAR(45),
-    location VARCHAR(255),
-    device_fingerprint VARCHAR(255),
-    session_start DATETIME,
-    risk_score DECIMAL(3,1),
-    status ENUM('normal', 'suspicious', 'high-risk') DEFAULT 'normal',
-    anomalies TEXT,
-    activity_level ENUM('low', 'medium', 'high'),
-    last_activity DATETIME,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Threat Data table
-CREATE TABLE IF NOT EXISTS threat_data (
+-- Threat detection table
+CREATE TABLE IF NOT EXISTS threat_detections (
     id VARCHAR(50) PRIMARY KEY,
-    timestamp DATETIME NOT NULL,
-    threat_type VARCHAR(255),
-    target VARCHAR(255),
-    status VARCHAR(100),
-    affected_systems INT DEFAULT 0,
-    potential_loss VARCHAR(255),
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Threat Alerts table
-CREATE TABLE IF NOT EXISTS threat_alerts (
-    id VARCHAR(50) PRIMARY KEY,
-    timestamp DATETIME NOT NULL,
-    user_email VARCHAR(255),
-    alert_type VARCHAR(255),
-    description TEXT,
-    severity ENUM('low', 'medium', 'high', 'critical') DEFAULT 'low',
-    status VARCHAR(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    user_id VARCHAR(50),
+    threat_type VARCHAR(100),
+    confidence_score DECIMAL(5,2),
+    detected_at TIMESTAMP,
+    mitigated BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 -- Insert user data
-INSERT INTO users (name, email, phone, company, job_title, security_concerns) 
+INSERT INTO users (id, first_name, last_name, email, phone, company, job_title, security_concerns, risk_score) 
 VALUES (
-    '${userData.name.replace(/'/g, "''")}',
-    '${userData.email}',
-    '${userData.phone}',
-    '${userData.company.replace(/'/g, "''")}',
-    '${userData.jobTitle.replace(/'/g, "''")}',
-    '${userData.securityConcerns.join(', ').replace(/'/g, "''")}'
-) ON DUPLICATE KEY UPDATE
-    phone = VALUES(phone),
-    company = VALUES(company),
-    job_title = VALUES(job_title),
-    security_concerns = VALUES(security_concerns),
-    updated_at = CURRENT_TIMESTAMP;
+    '${analysisId}',
+    '${formData.firstName.replace(/'/g, "''")}',
+    '${formData.lastName.replace(/'/g, "''")}',
+    '${formData.email}',
+    '${formData.phone}',
+    '${formData.company.replace(/'/g, "''")}',
+    '${formData.jobTitle.replace(/'/g, "''")}',
+    '${formData.securityConcerns.replace(/'/g, "''")}',
+    ${riskScore}
+);
 
--- Sample security events data
-INSERT INTO security_events (id, timestamp, source, event_type, description, severity, user_email, ip_address, location) VALUES
-('SE_MalwareDetected_987', '2025-05-30 17:10:00', 'Endpoint Security', 'Malware Detected', 'A malware was detected on user''s machine.', 'critical', 'john.doe@example.com', '192.168.1.100', 'New York, USA'),
-('SE_PhishingAttempt_654', '2025-05-30 17:12:30', 'Email Gateway', 'Phishing Attempt', 'A phishing email was detected and blocked.', 'high', 'jane.doe@example.com', '203.0.113.45', 'London, UK'),
-('SE_DDosAttack_321', '2025-05-30 17:15:00', 'Network Firewall', 'DDoS Attack', 'A distributed denial-of-service attack was detected and mitigated.', 'critical', 'N/A', 'Multiple', 'Global');
+-- Insert personalized security events
+${generateSecurityEvents(analysisId, formData.email)}
 
--- Sample user sessions data
-INSERT INTO user_sessions (user_id, email, device_type, ip_address, location, device_fingerprint, session_start, risk_score, status, anomalies, activity_level, last_activity) VALUES
-('USER_LegitCustomer_789', 'anjali.sharma@example.com', 'Desktop', '203.0.113.10', 'Bengaluru, India', 'FP_BHQ654JKL', '2025-05-30 17:06:30', 1.2, 'normal', '', 'medium', '2025-05-30 17:07:45'),
-('USER_Suspicious_456', 'suspicious.user@example.com', 'Mobile', '185.199.110.153', 'Moscow, Russia', 'FP_SUSPICIOUS_123', '2025-05-30 17:08:00', 9.1, 'suspicious', 'Multiple failed login attempts, Login from suspicious IP, Geo-location anomaly', 'high', NULL),
-('USER_Bot_Detection_321', 'bot.scraper@example.com', 'Desktop', '104.28.249.200', 'Dublin, Ireland', 'FP_GHIJ4567', '2025-05-30 17:08:30', 8.8, 'high-risk', 'Extreme request rate, Automated behavior pattern, Sequential access pattern', 'high', NULL);
+-- Insert threat detections
+${generateThreatDetections(analysisId, formData.email)}
 
--- Sample threat data
-INSERT INTO threat_data (id, timestamp, threat_type, target, status, affected_systems, potential_loss, description) VALUES
-('TD_RansomwareAttack_001', '2025-05-30 17:20:00', 'Ransomware Attack', 'Finance Department', 'active', 15, '$500,000', 'Ransomware attack targeting financial documents.'),
-('TD_DataBreach_002', '2025-05-30 17:22:30', 'Data Breach', 'Customer Database', 'contained', 3, 'Confidential', 'Unauthorized access to customer database.'),
-('TD_InsiderThreat_003', '2025-05-30 17:25:00', 'Insider Threat', 'HR Department', 'investigating', 1, 'Reputational Damage', 'Suspicious activity from an internal employee.');
-
--- Sample threat alerts data
-INSERT INTO threat_alerts (id, timestamp, user_email, alert_type, description, severity, status) VALUES
-('TA_HighRiskLogin_001', '2025-05-30 17:30:00', 'john.doe@example.com', 'High-Risk Login', 'Login from unusual location detected.', 'high', 'unresolved'),
-('TA_SuspiciousFileAccess_002', '2025-05-30 17:32:30', 'jane.doe@example.com', 'Suspicious File Access', 'Unusual access to sensitive files detected.', 'medium', 'investigating'),
-('TA_MalwareActivity_003', '2025-05-30 17:35:00', 'N/A', 'Malware Activity', 'Malware activity detected on the network.', 'critical', 'active');
-
--- Create indexes for better performance
-CREATE INDEX idx_security_events_timestamp ON security_events(timestamp);
-CREATE INDEX idx_security_events_severity ON security_events(severity);
-CREATE INDEX idx_user_sessions_risk_score ON user_sessions(risk_score);
-CREATE INDEX idx_threat_data_status ON threat_data(status);
-CREATE INDEX idx_threat_alerts_severity ON threat_alerts(severity);
-
--- Analysis Summary for ${userData.name}
--- Company: ${userData.company}
--- Security Concerns: ${userData.securityConcerns.join(', ')}
--- Analysis completed on: ${timestamp}
+-- Analysis summary
+SELECT 
+    'SECURITY ANALYSIS COMPLETE' as status,
+    email,
+    risk_score,
+    COUNT(se.id) as total_events,
+    COUNT(td.id) as threats_detected
+FROM users u
+LEFT JOIN security_events se ON u.id = se.user_id
+LEFT JOIN threat_detections td ON u.id = td.user_id
+WHERE u.id = '${analysisId}'
+GROUP BY u.id, u.email, u.risk_score;
 `;
 
-  return sql;
-};
-
-export const downloadSQL = (userData: UserFormData, analysisData: any = {}) => {
-  const sql = generateSecurityAnalysisSQL(userData, analysisData);
-  const blob = new Blob([sql], { type: 'text/plain' });
+  const blob = new Blob([sqlContent], { type: 'application/sql' });
   const url = URL.createObjectURL(blob);
-  
   const link = document.createElement('a');
   link.href = url;
-  link.download = `security_analysis_${userData.email.replace('@', '_')}_${new Date().toISOString().split('T')[0]}.sql`;
+  link.download = `security_analysis_${formData.firstName}_${formData.lastName}_${Date.now()}.sql`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  
   URL.revokeObjectURL(url);
+};
+
+const generateRiskScore = (email: string): number => {
+  // Generate risk score based on email patterns
+  let score = Math.random() * 30 + 10; // Base score 10-40
+  
+  if (email.includes('admin') || email.includes('root')) score += 20;
+  if (email.includes('.gov') || email.includes('.mil')) score += 15;
+  if (email.includes('temp') || email.includes('test')) score += 25;
+  if (email.length < 10) score += 10;
+  
+  return Math.min(100, Math.round(score * 100) / 100);
+};
+
+const generateSecurityEvents = (userId: string, email: string): string => {
+  const events = [
+    {
+      id: `SE_Login_${Date.now()}`,
+      type: 'Authentication Success',
+      severity: 'low',
+      description: `Successful login for ${email}`,
+      location: 'Unknown Location'
+    },
+    {
+      id: `SE_Anomaly_${Date.now() + 1}`,
+      type: 'Behavioral Anomaly',
+      severity: 'medium',
+      description: 'Unusual access pattern detected',
+      location: 'Multiple Locations'
+    },
+    {
+      id: `SE_Threat_${Date.now() + 2}`,
+      type: 'Potential Threat',
+      severity: 'high',
+      description: 'Suspicious activity detected from new device',
+      location: 'Unknown Location'
+    }
+  ];
+
+  return events.map(event => `
+INSERT INTO security_events (id, user_id, timestamp, event_type, source, description, severity, ip_address, location, status)
+VALUES (
+    '${event.id}',
+    '${userId}',
+    NOW(),
+    '${event.type}',
+    'Security Analysis Platform',
+    '${event.description}',
+    '${event.severity}',
+    '${generateRandomIP()}',
+    '${event.location}',
+    'detected'
+);`).join('\n');
+};
+
+const generateThreatDetections = (userId: string, email: string): string => {
+  const threats = [
+    { type: 'Phishing Attempt', confidence: 85.5 },
+    { type: 'Malware Detection', confidence: 72.3 },
+    { type: 'Suspicious Login', confidence: 91.2 }
+  ];
+
+  return threats.map((threat, index) => `
+INSERT INTO threat_detections (id, user_id, threat_type, confidence_score, detected_at, mitigated)
+VALUES (
+    'TD_${Date.now() + index}',
+    '${userId}',
+    '${threat.type}',
+    ${threat.confidence},
+    NOW(),
+    ${Math.random() > 0.5}
+);`).join('\n');
+};
+
+const generateRandomIP = (): string => {
+  return `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
 };

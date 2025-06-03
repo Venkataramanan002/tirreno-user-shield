@@ -7,24 +7,31 @@ export interface DashboardMetrics {
   riskScore: number;
   threatsDetected: number;
   falsePositives: number;
+  threatsBlocked: number;
+  botTraffic: number;
+  userGrowth: string;
+  threatGrowth: string;
+  blockRate: string;
+  botPercentage: string;
 }
 
 export interface ThreatTimelineItem {
   time: string;
-  critical: number;
-  high: number;
-  medium: number;
-  low: number;
+  threats: number;
+  blocked: number;
 }
 
 export interface RiskDistributionItem {
   type: string;
+  name: string;
   value: number;
+  color: string;
 }
 
 export interface TopThreat {
-  source: string;
-  value: number;
+  type: string;
+  count: number;
+  severity: 'high' | 'medium' | 'low' | 'critical';
 }
 
 export const dashboardApi = {
