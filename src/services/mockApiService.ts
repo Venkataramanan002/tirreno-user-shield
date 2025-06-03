@@ -1,153 +1,257 @@
+import { DashboardMetrics, ThreatTimelineItem, RiskDistributionItem, TopThreat } from './dashboardApi';
+import { SecurityEvent } from './securityEventsApi';
+import { ThreatData, ThreatAlert } from './threatDetectionApi';
 
-import { 
-  sampleSecurityEvents, 
-  sampleUserSession, 
-  sampleThreatIntelligence, 
-  sampleBotDetection,
-  sampleMetrics,
-  sampleHourlyThreatData
-} from '@/data/sampleData';
+export interface UserMetrics {
+  totalUsers: number;
+  activeUsers: number;
+  riskUsers: number;
+  averageSessionTime: string;
+}
 
-// Mock API service to simulate real API responses using sample data
+export interface SessionData {
+  time: string;
+  activeSessions: number;
+  newSessions: number;
+}
+
+export interface User {
+  userId: string;
+  email: string;
+  deviceType: string;
+  ipAddress: string;
+  location: string;
+  deviceFingerprint: string;
+  sessionStart: string;
+  riskScore: number;
+  status: 'normal' | 'suspicious' | 'high-risk';
+  anomalies: string[];
+  activityLevel?: 'low' | 'medium' | 'high';
+  lastActivity?: string;
+}
+
 export const mockApiService = {
-  // Dashboard APIs
-  getDashboardMetrics: async () => {
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-    return sampleMetrics;
-  },
-
-  getThreatTimeline: async () => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return sampleHourlyThreatData.map(item => ({
-      time: item.hour,
-      threats: item.bots + item.fraud + item.attacks,
-      blocked: Math.floor((item.bots + item.fraud + item.attacks) * 0.9)
-    }));
-  },
-
-  getRiskDistribution: async () => {
-    await new Promise(resolve => setTimeout(resolve, 400));
-    return [
-      { name: "High Risk", value: 35, color: "#ef4444" },
-      { name: "Medium Risk", value: 45, color: "#f59e0b" },
-      { name: "Low Risk", value: 20, color: "#10b981" }
-    ];
-  },
-
-  getTopThreats: async () => {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    return [
-      { type: "Brute Force Attack", count: 156, severity: "high" as const },
-      { type: "Bot Traffic", count: 89, severity: "high" as const },
-      { type: "API Abuse", count: 45, severity: "medium" as const },
-      { type: "Suspicious Login", count: 32, severity: "medium" as const }
-    ];
-  },
-
-  // Security Events APIs
-  getSecurityEvents: async (filters?: any) => {
-    await new Promise(resolve => setTimeout(resolve, 600));
-    return sampleSecurityEvents;
-  },
-
-  // User Behavior APIs
-  getUserBehaviorMetrics: async () => {
-    await new Promise(resolve => setTimeout(resolve, 400));
+  getDashboardMetrics: async (): Promise<DashboardMetrics> => {
+    await new Promise(resolve => setTimeout(resolve, 500));
     return {
-      averageSessionDuration: "8m 42s",
-      pageViewsPerSession: 4.7,
-      bounceRate: "23%",
-      suspiciousPatterns: 67
+      totalUsers: 1247,
+      activeUsers: 892,
+      riskScore: 7.8,
+      threatsDetected: 56,
+      falsePositives: 2
+    };
+  },
+
+  getThreatTimeline: async (): Promise<ThreatTimelineItem[]> => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return [
+      { time: "00:00", critical: 2, high: 5, medium: 12, low: 45 },
+      { time: "04:00", critical: 0, high: 3, medium: 7, low: 23 },
+      { time: "08:00", critical: 1, high: 8, medium: 15, low: 34 },
+      { time: "12:00", critical: 3, high: 12, medium: 23, low: 56 },
+      { time: "16:00", critical: 1, high: 5, medium: 18, low: 41 },
+      { time: "20:00", critical: 0, high: 2, medium: 10, low: 30 }
+    ];
+  },
+
+  getRiskDistribution: async (): Promise<RiskDistributionItem[]> => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return [
+      { type: "Malware", value: 32 },
+      { type: "Phishing", value: 27 },
+      { type: "DDoS", value: 15 },
+      { type: "Insider Threat", value: 12 },
+      { type: "Data Breach", value: 9 },
+      { type: "Ransomware", value: 5 }
+    ];
+  },
+
+  getTopThreats: async (): Promise<TopThreat[]> => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return [
+      { source: "China", value: 45 },
+      { source: "Russia", value: 30 },
+      { source: "North Korea", value: 15 },
+      { source: "Iran", value: 7 },
+      { source: "Nigeria", value: 3 }
+    ];
+  },
+
+  getUserMetrics: async () => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return {
+      totalUsers: 1247,
+      activeUsers: 892,
+      riskUsers: 23,
+      averageSessionTime: "18m 32s"
     };
   },
 
   getSessionData: async () => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return sampleHourlyThreatData.map(item => ({
-      time: item.hour,
-      sessions: Math.floor(Math.random() * 500) + 200,
-      anomalies: item.fraud + item.attacks
-    }));
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return [
+      { time: "00:00", activeSessions: 245, newSessions: 12 },
+      { time: "04:00", activeSessions: 189, newSessions: 8 },
+      { time: "08:00", activeSessions: 567, newSessions: 45 },
+      { time: "12:00", activeSessions: 892, newSessions: 78 },
+      { time: "16:00", activeSessions: 734, newSessions: 34 },
+      { time: "20:00", activeSessions: 456, newSessions: 23 }
+    ];
   },
 
-  getUsers: async (searchTerm?: string) => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const baseUser = sampleUserSession;
-    
-    // Generate some variation for demo
-    const users = [
+  getUsers: async () => {
+    await new Promise(resolve => setTimeout(resolve, 800));
+    return [
       {
-        ...baseUser,
-        riskScore: 91,
-        status: "suspicious" as const,
-        anomalies: ["Multiple failed logins", "New device", "Unusual location"]
+        id: "USER_LegitCustomer_789",
+        userId: "USER_LegitCustomer_789",
+        email: "anjali.sharma@example.com",
+        deviceType: "Desktop",
+        ipAddress: "203.0.113.10",
+        location: "Bengaluru, India",
+        deviceFingerprint: "FP_BHQ654JKL",
+        sessionStart: "2025-05-30 17:06:30",
+        riskScore: 1.2,
+        status: "normal",
+        anomalies: [],
+        activityLevel: "medium",
+        lastActivity: "2025-05-30 17:07:45"
       },
       {
-        id: "user_002",
-        email: "john.doe@example.com",
-        riskScore: 25,
-        status: "normal" as const,
-        location: "New York, US",
-        device: "Safari/macOS",
-        lastActivity: "5 min ago",
-        anomalies: []
-      },
-      {
-        id: "user_003",
-        email: "threat.actor@suspicious.com",
-        riskScore: 88,
-        status: "blocked" as const,
+        id: "USER_Suspicious_456",
+        userId: "USER_Suspicious_456", 
+        email: "suspicious.user@example.com",
+        deviceType: "Mobile",
+        ipAddress: "185.199.110.153",
         location: "Moscow, Russia",
-        device: "Chrome/Linux",
-        lastActivity: "2 min ago",
-        anomalies: ["Brute force attempt", "Malicious IP", "Bot-like behavior"]
+        deviceFingerprint: "FP_SUSPICIOUS_123",
+        sessionStart: "2025-05-30 17:08:00",
+        riskScore: 9.1,
+        status: "suspicious",
+        anomalies: ["Multiple failed login attempts", "Login from suspicious IP", "Geo-location anomaly"],
+        activityLevel: "high"
+      },
+      {
+        id: "USER_Bot_Detection_321",
+        userId: "USER_Bot_Detection_321",
+        email: "bot.scraper@example.com", 
+        deviceType: "Desktop",
+        ipAddress: "104.28.249.200",
+        location: "Dublin, Ireland",
+        deviceFingerprint: "FP_GHIJ4567",
+        sessionStart: "2025-05-30 17:08:30",
+        riskScore: 8.8,
+        status: "high-risk",
+        anomalies: ["Extreme request rate", "Automated behavior pattern", "Sequential access pattern"],
+        activityLevel: "high"
       }
     ];
-
-    if (searchTerm) {
-      return users.filter(user => 
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.location.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    return users;
   },
 
-  // Threat Detection APIs
-  getThreatTypes: async () => {
-    await new Promise(resolve => setTimeout(resolve, 400));
+  getSecurityEvents: async (): Promise<SecurityEvent[]> => {
+    await new Promise(resolve => setTimeout(resolve, 500));
     return [
-      { type: "Bot Traffic", detected: 156, blocked: 142, severity: "high" as const },
-      { type: "Brute Force", detected: 89, blocked: 87, severity: "high" as const },
-      { type: "Account Takeover", detected: 45, blocked: 38, severity: "medium" as const },
-      { type: "API Abuse", detected: 32, blocked: 29, severity: "medium" as const }
+      {
+        id: "SE_MalwareDetected_987",
+        timestamp: "2025-05-30 17:10:00",
+        source: "Endpoint Security",
+        event: "Malware Detected",
+        description: "A malware was detected on user's machine.",
+        severity: "critical",
+        user: "john.doe@example.com",
+        ipAddress: "192.168.1.100",
+        location: "New York, USA"
+      },
+      {
+        id: "SE_PhishingAttempt_654",
+        timestamp: "2025-05-30 17:12:30",
+        source: "Email Gateway",
+        event: "Phishing Attempt",
+        description: "A phishing email was detected and blocked.",
+        severity: "high",
+        user: "jane.doe@example.com",
+        ipAddress: "203.0.113.45",
+        location: "London, UK"
+      },
+      {
+        id: "SE_DDosAttack_321",
+        timestamp: "2025-05-30 17:15:00",
+        source: "Network Firewall",
+        event: "DDoS Attack",
+        description: "A distributed denial-of-service attack was detected and mitigated.",
+        severity: "critical",
+        user: "N/A",
+        ipAddress: "Multiple",
+        location: "Global"
+      }
     ];
   },
 
-  getHourlyThreatData: async () => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return sampleHourlyThreatData;
-  },
-
-  getDetectionRules: async () => {
-    await new Promise(resolve => setTimeout(resolve, 200));
+  getThreatData: async (): Promise<ThreatData[]> => {
+    await new Promise(resolve => setTimeout(resolve, 500));
     return [
       {
-        id: "rule_001",
-        name: "Brute Force Detection",
-        description: "Detects multiple failed login attempts from same IP",
-        status: "active" as const,
-        triggered: 23,
-        accuracy: 94
+        id: "TD_RansomwareAttack_001",
+        timestamp: "2025-05-30 17:20:00",
+        threatType: "Ransomware Attack",
+        target: "Finance Department",
+        status: "active",
+        affectedSystems: 15,
+        potentialLoss: "$500,000",
+        description: "Ransomware attack targeting financial documents."
       },
       {
-        id: "rule_002",
-        name: "Geo-location Anomaly",
-        description: "Flags logins from unusual geographic locations",
-        status: "active" as const,
-        triggered: 67,
-        accuracy: 87
+        id: "TD_DataBreach_002",
+        timestamp: "2025-05-30 17:22:30",
+        threatType: "Data Breach",
+        target: "Customer Database",
+        status: "contained",
+        affectedSystems: 3,
+        potentialLoss: "Confidential",
+        description: "Unauthorized access to customer database."
+      },
+      {
+        id: "TD_InsiderThreat_003",
+        timestamp: "2025-05-30 17:25:00",
+        threatType: "Insider Threat",
+        target: "HR Department",
+        status: "investigating",
+        affectedSystems: 1,
+        potentialLoss: "Reputational Damage",
+        description: "Suspicious activity from an internal employee."
+      }
+    ];
+  },
+
+  getThreatAlerts: async (): Promise<ThreatAlert[]> => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return [
+      {
+        id: "TA_HighRiskLogin_001",
+        timestamp: "2025-05-30 17:30:00",
+        user: "john.doe@example.com",
+        alertType: "High-Risk Login",
+        description: "Login from unusual location detected.",
+        severity: "high",
+        status: "unresolved"
+      },
+      {
+        id: "TA_SuspiciousFileAccess_002",
+        timestamp: "2025-05-30 17:32:30",
+        user: "jane.doe@example.com",
+        alertType: "Suspicious File Access",
+        description: "Unusual access to sensitive files detected.",
+        severity: "medium",
+        status: "investigating"
+      },
+      {
+        id: "TA_MalwareActivity_003",
+        timestamp: "2025-05-30 17:35:00",
+        user: "N/A",
+        alertType: "Malware Activity",
+        description: "Malware activity detected on the network.",
+        severity: "critical",
+        status: "active"
       }
     ];
   }
