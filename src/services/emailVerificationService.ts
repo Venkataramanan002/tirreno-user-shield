@@ -1,4 +1,3 @@
-
 import { API_KEYS } from '../config/apiKeys';
 
 export interface VerificationCode {
@@ -11,11 +10,9 @@ export class EmailVerificationService {
   private static verificationCodes = new Map<string, VerificationCode>();
   
   static async sendVerificationEmail(email: string): Promise<{ success: boolean; code?: string }> {
-    // Generate a realistic 6-digit code
     const code = Math.random().toString().slice(2, 8).padStart(6, '0');
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     
-    // Store the code
     this.verificationCodes.set(email, {
       code,
       expiresAt,
@@ -23,7 +20,9 @@ export class EmailVerificationService {
     });
     
     try {
-      // Send email using Supabase Edge Function
+      console.log('Attempting to send email via Supabase Edge Function...');
+      console.log('Supabase URL:', API_KEYS.SUPABASE_URL);
+      
       const response = await fetch(`${API_KEYS.SUPABASE_URL}/functions/v1/send-verification-email`, {
         method: 'POST',
         headers: {
@@ -37,20 +36,22 @@ export class EmailVerificationService {
         })
       });
 
+      console.log('Supabase response status:', response.status);
+      const responseText = await response.text();
+      console.log('Supabase response body:', responseText);
+
       if (response.ok) {
-        console.log(`Verification email sent to ${email}`);
-        console.log(`Verification code: ${code} (expires at ${expiresAt.toLocaleTimeString()})`);
+        console.log(`✅ Verification email sent successfully to ${email}`);
+        console.log(`📧 Verification code: ${code} (expires at ${expiresAt.toLocaleTimeString()})`);
         return { success: true };
       } else {
-        // Fallback to console logging if Supabase function fails
-        console.log(`Verification email would be sent to ${email}`);
-        console.log(`Verification code: ${code} (expires at ${expiresAt.toLocaleTimeString()})`);
-        return { success: true, code }; // Return code for demo purposes if email fails
+        throw new Error(`Supabase function failed: ${response.status}`);
       }
     } catch (error) {
-      console.error('Email sending failed:', error);
-      console.log(`Verification code for ${email}: ${code} (expires at ${expiresAt.toLocaleTimeString()})`);
-      return { success: true, code }; // Return code for demo purposes if email fails
+      console.error('❌ Email sending failed:', error);
+      console.log(`📧 Demo Mode - Verification code for ${email}: ${code} (expires at ${expiresAt.toLocaleTimeString()})`);
+      console.log(`⚠️ In production, this code would be sent via email`);
+      return { success: true, code };
     }
   }
   
@@ -85,7 +86,6 @@ export class EmailVerificationService {
   }
   
   static resendCode(email: string): Promise<{ success: boolean; code?: string }> {
-    // Clear existing code and send new one
     this.verificationCodes.delete(email);
     return this.sendVerificationEmail(email);
   }

@@ -1,4 +1,3 @@
-
 import { API_KEYS } from '../config/apiKeys';
 
 interface ThreatCheckResult {
@@ -30,16 +29,6 @@ interface AbstractEmailReputationResponse {
   is_role_email: {
     value: boolean;
   };
-}
-
-interface EnzoicResponse {
-  compromised: boolean;
-  breachCount: number;
-  breaches: Array<{
-    name: string;
-    date: string;
-    category: string;
-  }>;
 }
 
 export class ThreatAnalysisService {
@@ -92,17 +81,30 @@ export class ThreatAnalysisService {
 
   private static async performAbstractEmailCheck(email: string, category: string): Promise<ThreatCheckResult> {
     try {
-      const response = await fetch(`https://emailvalidation.abstractapi.com/v1/?api_key=${API_KEYS.ABSTRACT_EMAIL_REPUTATION}&email=${encodeURIComponent(email)}`);
+      console.log('Attempting Abstract API call with key:', API_KEYS.ABSTRACT_EMAIL_REPUTATION);
+      
+      const url = `https://emailvalidation.abstractapi.com/v1/?api_key=${API_KEYS.ABSTRACT_EMAIL_REPUTATION}&email=${encodeURIComponent(email)}`;
+      console.log('Abstract API URL:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      
+      console.log('Abstract API Response Status:', response.status);
+      const responseText = await response.text();
+      console.log('Abstract API Response Body:', responseText);
       
       if (response.ok) {
-        const data: AbstractEmailReputationResponse = await response.json();
-        console.log('Abstract API Response:', data);
+        const data: AbstractEmailReputationResponse = JSON.parse(responseText);
+        console.log('Abstract API Success Response:', data);
         
-        let score = 10; // Base score
+        let score = 10;
         let status: 'safe' | 'warning' | 'danger' = 'safe';
         let details = '';
 
-        // Analyze the response
         if (!data.is_valid_format?.value) {
           score += 40;
           status = 'danger';
@@ -114,7 +116,7 @@ export class ThreatAnalysisService {
         } else if (data.is_role_email?.value) {
           score += 20;
           status = 'warning';
-          details = 'Role-based email address (admin, support, etc.)';
+          details = 'Role-based email address';
         } else if (data.quality_score < 0.7) {
           score += 25;
           status = 'warning';
@@ -136,7 +138,8 @@ export class ThreatAnalysisService {
           score: Math.min(100, Math.round(score))
         };
       } else {
-        throw new Error('API request failed');
+        console.error('Abstract API Error Response:', response.status, responseText);
+        throw new Error(`API request failed: ${response.status}`);
       }
     } catch (error) {
       console.error('Abstract API Error:', error);
@@ -146,20 +149,31 @@ export class ThreatAnalysisService {
 
   private static async performEnzoicBreachCheck(email: string, category: string): Promise<ThreatCheckResult> {
     try {
+      console.log('Attempting Enzoic API call with key:', API_KEYS.ENZOIC);
+      
+      // Try basic auth format for Enzoic
+      const credentials = btoa(`${API_KEYS.ENZOIC}:`);
+      console.log('Enzoic credentials:', credentials);
+      
       const response = await fetch('https://api.enzoic.com/v1/accounts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `basic ${btoa(API_KEYS.ENZOIC + ':')}`
+          'Authorization': `Basic ${credentials}`,
+          'Accept': 'application/json'
         },
         body: JSON.stringify({
           usernames: [email]
         })
       });
 
+      console.log('Enzoic API Response Status:', response.status);
+      const responseText = await response.text();
+      console.log('Enzoic API Response Body:', responseText);
+
       if (response.ok) {
-        const data: EnzoicResponse = await response.json();
-        console.log('Enzoic API Response:', data);
+        const data = JSON.parse(responseText);
+        console.log('Enzoic API Success Response:', data);
         
         let score = 10;
         let status: 'safe' | 'warning' | 'danger' = 'safe';
@@ -176,11 +190,6 @@ export class ThreatAnalysisService {
             status = 'warning';
             details = `Email found in ${breachCount} data breach(es)`;
           }
-          
-          if (data.breaches && data.breaches.length > 0) {
-            const recentBreach = data.breaches[0];
-            details += ` - Most recent: ${recentBreach.name}`;
-          }
         } else {
           details = 'No known data breaches found';
         }
@@ -192,7 +201,8 @@ export class ThreatAnalysisService {
           score: Math.min(100, Math.round(score))
         };
       } else {
-        throw new Error('API request failed');
+        console.error('Enzoic API Error Response:', response.status, responseText);
+        throw new Error(`API request failed: ${response.status}`);
       }
     } catch (error) {
       console.error('Enzoic API Error:', error);
@@ -201,11 +211,10 @@ export class ThreatAnalysisService {
   }
 
   private static generateCustomThreatCheck(email: string, category: string): ThreatCheckResult {
-    let score = Math.random() * 30 + 10; // Base score 10-40
+    let score = Math.random() * 30 + 10;
     let status: 'safe' | 'warning' | 'danger' = 'safe';
     let details = '';
 
-    // Email-based risk factors
     if (email.includes('admin') || email.includes('root')) score += 25;
     if (email.includes('.gov') || email.includes('.mil')) score += 20;
     if (email.includes('temp') || email.includes('test')) score += 30;
