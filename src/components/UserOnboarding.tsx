@@ -1,14 +1,15 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Shield, Mail, CheckCircle, AlertTriangle } from "lucide-react";
+import { Shield, Mail, CheckCircle, AlertTriangle, Search, Activity, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { downloadSQL, UserFormData } from "@/utils/sqlExporter";
 import { setCurrentUser } from "@/services/mockApiService";
+import { ThreatAnalysisService } from "@/services/threatAnalysisService";
+import { EmailVerificationService } from "@/services/emailVerificationService";
 
 interface UserOnboardingProps {
   onUserVerified: () => void;
@@ -28,6 +29,10 @@ const UserOnboarding = ({ onUserVerified }: UserOnboardingProps) => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [currentAnalysisStep, setCurrentAnalysisStep] = useState("");
+  const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [threatAnalysisResult, setThreatAnalysisResult] = useState<any>(null);
   const { toast } = useToast();
 
   const handleInputChange = (field: string, value: string) => {
@@ -46,35 +51,72 @@ const UserOnboarding = ({ onUserVerified }: UserOnboardingProps) => {
 
     setIsLoading(true);
     
-    // Generate a mock verification code
-    const mockCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    setGeneratedCode(mockCode);
-    
-    // Simulate sending verification email
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    console.log("Mock verification code:", mockCode);
-    
-    toast({
-      title: "Verification Email Sent",
-      description: `A verification code has been sent to ${formData.email}. For demo purposes, use code: ${mockCode}`,
-    });
-    
-    setStep(2);
-    setIsLoading(false);
+    try {
+      const result = await EmailVerificationService.sendVerificationEmail(formData.email);
+      
+      if (result.success) {
+        setGeneratedCode(result.code || "");
+        
+        toast({
+          title: "Verification Email Sent",
+          description: `A verification code has been sent to ${formData.email}. For demo: ${result.code}`,
+        });
+        
+        setStep(2);
+      } else {
+        throw new Error("Failed to send verification email");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send verification email. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const verifyEmail = async () => {
+  const verifyEmailAndAnalyze = async () => {
     setIsLoading(true);
     
-    // Simulate email verification
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    if (formData.verificationCode.toUpperCase() === generatedCode || formData.verificationCode.length >= 6) {
-      // Set up personalized data based on email
+    try {
+      // Verify the code
+      const verificationResult = EmailVerificationService.verifyCode(
+        formData.email, 
+        formData.verificationCode
+      );
+      
+      if (!verificationResult.success) {
+        toast({
+          title: "Verification Failed",
+          description: verificationResult.message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Start threat analysis
+      setStep(3);
+      setAnalysisProgress(0);
+      setCurrentAnalysisStep("Initializing security scan...");
+      
+      const analysisResult = await ThreatAnalysisService.performEmailAnalysis(
+        formData.email,
+        (step, progress) => {
+          setCurrentAnalysisStep(step);
+          setAnalysisProgress(progress);
+        }
+      );
+      
+      setThreatAnalysisResult(analysisResult);
+      setAnalysisComplete(true);
+      
+      // Set up personalized data
       setCurrentUser(formData.email);
       
-      // Generate SQL export with personalized data
+      // Generate SQL export
       const userFormData: UserFormData = {
         ...formData,
         name: `${formData.firstName} ${formData.lastName}`
@@ -84,39 +126,49 @@ const UserOnboarding = ({ onUserVerified }: UserOnboardingProps) => {
         submissionTime: new Date().toISOString(),
         platform: 'Security Analysis Platform',
         analysisId: `ANALYSIS_${Date.now()}`,
-        riskScore: calculateInitialRiskScore(formData.email)
+        riskScore: analysisResult.overallRiskScore
       });
       
       toast({
-        title: "Analysis Complete!",
-        description: `Security analysis for ${formData.email} has been generated. Your personalized SQL report is downloading.`,
+        title: "Security Analysis Complete!",
+        description: `Risk score: ${analysisResult.overallRiskScore}/100. Report downloaded.`,
       });
-      
-      setStep(3);
       
       setTimeout(() => {
         onUserVerified();
       }, 3000);
-    } else {
+      
+    } catch (error) {
       toast({
-        title: "Invalid Verification Code",
-        description: `Please enter the correct verification code: ${generatedCode}`,
+        title: "Analysis Failed",
+        description: "Failed to complete security analysis. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
-  const calculateInitialRiskScore = (email: string): number => {
-    let score = Math.random() * 30 + 20;
-    
-    if (email.includes('admin') || email.includes('root')) score += 30;
-    if (email.includes('.gov') || email.includes('.mil')) score += 25;
-    if (email.includes('temp') || email.includes('test')) score += 35;
-    if (email.length < 10) score += 15;
-    
-    return Math.min(100, Math.round(score));
+  const resendCode = async () => {
+    setIsLoading(true);
+    try {
+      const result = await EmailVerificationService.resendCode(formData.email);
+      if (result.success) {
+        setGeneratedCode(result.code || "");
+        toast({
+          title: "New Code Sent",
+          description: `A new verification code has been sent. Code: ${result.code}`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to resend code. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const validateForm = () => {
@@ -148,9 +200,10 @@ const UserOnboarding = ({ onUserVerified }: UserOnboardingProps) => {
           <div>
             <CardTitle className="text-2xl text-white">Security Analysis Platform</CardTitle>
             <CardDescription className="text-slate-400">
-              {step === 1 && "Enter your information for personalized security analysis"}
-              {step === 2 && "Verify your email to generate your security profile"}
-              {step === 3 && "Analysis complete! Preparing your personalized dashboard..."}
+              {step === 1 && "Enter your information for comprehensive security analysis"}
+              {step === 2 && "Verify your email to begin threat analysis"}
+              {step === 3 && !analysisComplete && "Performing deep security analysis..."}
+              {step === 3 && analysisComplete && "Analysis complete! Preparing your dashboard..."}
             </CardDescription>
           </div>
         </CardHeader>
@@ -162,10 +215,10 @@ const UserOnboarding = ({ onUserVerified }: UserOnboardingProps) => {
                 <div className="flex items-start space-x-3">
                   <AlertTriangle className="w-5 h-5 text-blue-400 mt-0.5" />
                   <div>
-                    <h4 className="text-blue-400 font-semibold mb-1">What We Analyze</h4>
+                    <h4 className="text-blue-400 font-semibold mb-1">Real Security Analysis</h4>
                     <p className="text-slate-300 text-sm">
-                      Our platform generates a comprehensive security assessment including threat detection, 
-                      risk scoring, behavioral analysis, and personalized security recommendations based on your profile.
+                      Our platform performs comprehensive threat detection including email reputation checks, 
+                      breach database lookups, tracker detection, and behavioral pattern analysis.
                     </p>
                   </div>
                 </div>
@@ -197,7 +250,7 @@ const UserOnboarding = ({ onUserVerified }: UserOnboardingProps) => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-300">Email Address * <span className="text-xs text-slate-500">(Used for personalized analysis)</span></Label>
+                <Label htmlFor="email" className="text-slate-300">Email Address *</Label>
                 <Input
                   id="email"
                   type="email"
@@ -254,7 +307,7 @@ const UserOnboarding = ({ onUserVerified }: UserOnboardingProps) => {
                   value={formData.securityConcerns}
                   onChange={(e) => handleInputChange("securityConcerns", e.target.value)}
                   className="bg-slate-700/50 border-slate-600 text-white"
-                  placeholder="Describe any specific security concerns, recent incidents, or areas you'd like us to focus on in our analysis..."
+                  placeholder="Describe any specific security concerns..."
                   rows={3}
                 />
               </div>
@@ -267,12 +320,12 @@ const UserOnboarding = ({ onUserVerified }: UserOnboardingProps) => {
                 {isLoading ? (
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Initializing Security Analysis...</span>
+                    <span>Sending Verification Email...</span>
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2">
                     <Mail className="w-4 h-4" />
-                    <span>Begin Security Analysis</span>
+                    <span>Send Verification Code</span>
                   </div>
                 )}
               </Button>
@@ -285,65 +338,134 @@ const UserOnboarding = ({ onUserVerified }: UserOnboardingProps) => {
                 <Mail className="w-8 h-8 text-cyan-400" />
               </div>
               <p className="text-slate-300">
-                We've sent a verification code to <span className="text-cyan-400">{formData.email}</span>
+                Verification code sent to <span className="text-cyan-400">{formData.email}</span>
               </p>
               <p className="text-sm text-slate-400">
-                For demo purposes, use this code: <span className="text-green-400 font-mono font-bold">{generatedCode}</span>
+                Demo code: <span className="text-green-400 font-mono font-bold">{generatedCode}</span>
               </p>
               <div className="space-y-2">
-                <Label htmlFor="verificationCode" className="text-slate-300">Enter Verification Code</Label>
+                <Label htmlFor="verificationCode" className="text-slate-300">Enter 6-Digit Code</Label>
                 <Input
                   id="verificationCode"
                   value={formData.verificationCode}
-                  onChange={(e) => handleInputChange("verificationCode", e.target.value.toUpperCase())}
+                  onChange={(e) => handleInputChange("verificationCode", e.target.value)}
                   className="bg-slate-700/50 border-slate-600 text-white text-center text-lg tracking-widest"
-                  placeholder="XXXXXX"
+                  placeholder="000000"
                   maxLength={6}
                 />
               </div>
-              <Button
-                onClick={verifyEmail}
-                disabled={formData.verificationCode.length < 6 || isLoading}
-                className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
-              >
-                {isLoading ? (
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Generating Analysis...</span>
-                  </div>
-                ) : (
-                  "Complete Security Analysis"
-                )}
-              </Button>
+              <div className="flex gap-3">
+                <Button
+                  onClick={verifyEmailAndAnalyze}
+                  disabled={formData.verificationCode.length !== 6 || isLoading}
+                  className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
+                >
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Verifying...</span>
+                    </div>
+                  ) : (
+                    "Begin Security Analysis"
+                  )}
+                </Button>
+                <Button
+                  onClick={resendCode}
+                  variant="outline"
+                  disabled={isLoading}
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  Resend
+                </Button>
+              </div>
             </div>
           )}
 
           {step === 3 && (
-            <div className="space-y-4 text-center">
-              <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle className="w-8 h-8 text-green-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-white">Analysis Complete, {formData.firstName}!</h3>
-              <p className="text-slate-300">
-                Your personalized security analysis has been generated and your SQL report is downloading. 
-                Redirecting to your security dashboard...
-              </p>
-              <div className="bg-slate-700/50 rounded-lg p-4 mt-4">
-                <div className="text-sm text-slate-400 mb-2">Analysis Summary</div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-slate-400">Email:</span>
-                    <span className="text-white ml-2">{formData.email}</span>
+            <div className="space-y-6 text-center">
+              {!analysisComplete && (
+                <>
+                  <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto">
+                    <Search className="w-8 h-8 text-orange-400 animate-pulse" />
                   </div>
-                  <div>
-                    <span className="text-slate-400">Risk Score:</span>
-                    <span className="text-yellow-400 ml-2 font-bold">{calculateInitialRiskScore(formData.email)}/100</span>
+                  <h3 className="text-xl font-semibold text-white">Analyzing Security Profile</h3>
+                  <div className="space-y-4">
+                    <div className="bg-slate-700/50 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-slate-300 text-sm">{currentAnalysisStep}</span>
+                        <span className="text-cyan-400 text-sm font-bold">{analysisProgress}%</span>
+                      </div>
+                      <div className="w-full bg-slate-600 rounded-full h-2">
+                        <div 
+                          className="bg-gradient-to-r from-cyan-500 to-blue-600 h-2 rounded-full transition-all duration-1000"
+                          style={{ width: `${analysisProgress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-center space-x-2 text-slate-400">
+                      <Activity className="w-4 h-4 animate-pulse" />
+                      <span className="text-sm">Deep security scan in progress...</span>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="w-full bg-slate-700 rounded-full h-2">
-                <div className="bg-gradient-to-r from-cyan-500 to-blue-600 h-2 rounded-full animate-pulse w-full"></div>
-              </div>
+                </>
+              )}
+
+              {analysisComplete && threatAnalysisResult && (
+                <>
+                  <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto">
+                    <CheckCircle className="w-8 h-8 text-green-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white">Security Analysis Complete!</h3>
+                  
+                  <div className="bg-slate-700/50 rounded-lg p-4 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Overall Risk Score:</span>
+                      <span className={`text-2xl font-bold ${
+                        threatAnalysisResult.overallRiskScore > 70 ? 'text-red-400' :
+                        threatAnalysisResult.overallRiskScore > 40 ? 'text-yellow-400' : 'text-green-400'
+                      }`}>
+                        {threatAnalysisResult.overallRiskScore}/100
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Email Reputation:</span>
+                      <span className={`font-semibold capitalize ${
+                        threatAnalysisResult.emailReputation === 'compromised' ? 'text-red-400' :
+                        threatAnalysisResult.emailReputation === 'suspicious' ? 'text-yellow-400' : 'text-green-400'
+                      }`}>
+                        {threatAnalysisResult.emailReputation}
+                      </span>
+                    </div>
+                    
+                    <div className="text-left">
+                      <div className="text-slate-300 text-sm mb-2">Threat Checks Performed:</div>
+                      <div className="space-y-1">
+                        {threatAnalysisResult.threatChecks.map((check: any, index: number) => (
+                          <div key={index} className="flex justify-between items-center text-xs">
+                            <span className="text-slate-400">{check.category}</span>
+                            <span className={`
+                              ${check.status === 'safe' ? 'text-green-400' : 
+                                check.status === 'warning' ? 'text-yellow-400' : 'text-red-400'}
+                            `}>
+                              {check.status.toUpperCase()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-center space-x-2 text-slate-400">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm">Redirecting to dashboard...</span>
+                  </div>
+                  
+                  <div className="w-full bg-slate-700 rounded-full h-2">
+                    <div className="bg-gradient-to-r from-cyan-500 to-blue-600 h-2 rounded-full animate-pulse w-full"></div>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </CardContent>
