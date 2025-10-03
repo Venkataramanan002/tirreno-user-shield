@@ -106,7 +106,7 @@ const Dashboard = () => {
         
       } catch (err) {
         console.error('Dashboard: Failed to fetch real data:', err);
-        setError('Failed to load real-time security data');
+        setError("Data couldn't be fetched");
       } finally {
         setIsLoading(false);
       }
@@ -136,7 +136,6 @@ const Dashboard = () => {
         <div className="text-center">
           <AlertTriangle className="w-16 h-16 text-red-400 mx-auto mb-4" />
           <p className="text-red-400 text-lg">{error}</p>
-          <p className="text-slate-400 text-sm mt-2">Please check your internet connection and API keys</p>
         </div>
       </div>
     );

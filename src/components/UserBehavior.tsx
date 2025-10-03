@@ -143,21 +143,21 @@ const UserBehavior = () => {
         
         // Minimal fallback data
         setBehaviorMetrics([
-          { metric: "Average Session Duration", value: "API Error", trend: "N/A" },
-          { metric: "Page Views per Session", value: "API Error", trend: "N/A" },
-          { metric: "Bounce Rate", value: "API Error", trend: "N/A" },
-          { metric: "Suspicious Patterns", value: "API Error", trend: "N/A" }
+          { metric: "Average Session Duration", value: "Data couldn't be fetched", trend: "N/A" },
+          { metric: "Page Views per Session", value: "Data couldn't be fetched", trend: "N/A" },
+          { metric: "Bounce Rate", value: "Data couldn't be fetched", trend: "N/A" },
+          { metric: "Suspicious Patterns", value: "Data couldn't be fetched", trend: "N/A" }
         ]);
         
         setRecentUsers([{
           id: 'error_user',
-          email: 'Could not fetch real data',
+          email: 'Data couldn\'t be fetched',
           riskScore: 0,
           status: 'normal',
-          location: 'API Error',
+          location: 'Data couldn\'t be fetched',
           device: 'Unknown',
           lastActivity: 'Error',
-          anomalies: ['Could not connect to security APIs']
+          anomalies: ['Data couldn\'t be fetched']
         }]);
         
       } finally {

@@ -170,14 +170,14 @@ const ThreatDetection = () => {
         
         // Fallback data
         setSummaryMetrics({
-          totalThreats: "API Connection Error",
-          blocked: "Could not fetch", 
-          blockRate: "Please check API keys",
-          activeRules: "Error"
+          totalThreats: "Data couldn't be fetched",
+          blocked: "Data couldn't be fetched", 
+          blockRate: "Data couldn't be fetched",
+          activeRules: "Data couldn't be fetched"
         });
         
         setThreatTypes([{
-          type: "API Connection Error",
+          type: "Data couldn't be fetched",
           detected: 0,
           blocked: 0,
           severity: "high"
