@@ -27,20 +27,43 @@ const Auth = () => {
           email,
           password,
         });
-        if (error) throw error;
+        if (error) {
+          if (error.message.includes("Email not confirmed")) {
+            setError("Please confirm your email first. Check your inbox for the confirmation link.");
+          } else if (error.message.includes("Invalid login credentials")) {
+            setError("Invalid email or password. If you just signed up, please confirm your email first.");
+          } else {
+            setError(error.message);
+          }
+          throw error;
+        }
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/`,
           },
         });
-        if (error) throw error;
-        setError("Check your email to confirm your account!");
+        
+        if (error) {
+          // Handle rate limiting errors
+          if (error.message.includes("429") || error.message.includes("rate limit")) {
+            setError("Too many signup attempts. Please wait a minute before trying again.");
+          } else {
+            setError(error.message);
+          }
+          throw error;
+        }
+        
+        // Only show success message if no error
+        if (data.user) {
+          setError("Success! Check your email to confirm your account before logging in.");
+        }
       }
     } catch (err: any) {
-      setError(err.message || "An error occurred");
+      // Error already handled above
+      console.error("Auth error:", err);
     } finally {
       setLoading(false);
     }
@@ -65,7 +88,7 @@ const Auth = () => {
         <CardContent>
           <form onSubmit={handleAuth} className="space-y-4">
             {error && (
-              <Alert variant={error.includes("Check your email") ? "default" : "destructive"}>
+              <Alert variant={error.includes("Success!") || error.includes("Check your email") ? "default" : "destructive"}>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
