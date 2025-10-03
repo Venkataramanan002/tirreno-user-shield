@@ -14,7 +14,189 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      security_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_type: string
+          id: string
+          ip_address: string | null
+          location: string | null
+          severity: string
+          timestamp: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          location?: string | null
+          severity: string
+          timestamp?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          location?: string | null
+          severity?: string
+          timestamp?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      threat_detections: {
+        Row: {
+          created_at: string
+          detected_at: string
+          id: string
+          severity: string
+          source_ip: string | null
+          status: string | null
+          target: string | null
+          threat_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          detected_at?: string
+          id?: string
+          severity: string
+          source_ip?: string | null
+          status?: string | null
+          target?: string | null
+          threat_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          detected_at?: string
+          id?: string
+          severity?: string
+          source_ip?: string | null
+          status?: string | null
+          target?: string | null
+          threat_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_metrics: {
+        Row: {
+          active_sessions: number | null
+          bot_traffic: number | null
+          created_at: string
+          false_positives: number | null
+          id: string
+          risk_score: number | null
+          threats_blocked: number | null
+          threats_detected: number | null
+          total_sessions: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active_sessions?: number | null
+          bot_traffic?: number | null
+          created_at?: string
+          false_positives?: number | null
+          id?: string
+          risk_score?: number | null
+          threats_blocked?: number | null
+          threats_detected?: number | null
+          total_sessions?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active_sessions?: number | null
+          bot_traffic?: number | null
+          created_at?: string
+          false_positives?: number | null
+          id?: string
+          risk_score?: number | null
+          threats_blocked?: number | null
+          threats_detected?: number | null
+          total_sessions?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_sessions: {
+        Row: {
+          actions_taken: number | null
+          browser: string | null
+          created_at: string
+          device_type: string | null
+          ended_at: string | null
+          id: string
+          location: string | null
+          pages_viewed: number | null
+          risk_score: number | null
+          session_duration: number | null
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          actions_taken?: number | null
+          browser?: string | null
+          created_at?: string
+          device_type?: string | null
+          ended_at?: string | null
+          id?: string
+          location?: string | null
+          pages_viewed?: number | null
+          risk_score?: number | null
+          session_duration?: number | null
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          actions_taken?: number | null
+          browser?: string | null
+          created_at?: string
+          device_type?: string | null
+          ended_at?: string | null
+          id?: string
+          location?: string | null
+          pages_viewed?: number | null
+          risk_score?: number | null
+          session_duration?: number | null
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
