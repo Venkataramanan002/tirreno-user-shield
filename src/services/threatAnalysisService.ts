@@ -13,6 +13,8 @@ interface EmailAnalysisResult {
   threatChecks: ThreatCheckResult[];
   recommendations: string[];
   emailReputation: 'good' | 'suspicious' | 'compromised';
+  userIP: string;
+  userLocation?: string;
 }
 
 interface AbstractEmailReputationResponse {
@@ -30,6 +32,34 @@ interface AbstractEmailReputationResponse {
   is_role_email: {
     value: boolean;
   };
+  is_catchall_email: {
+    value: boolean;
+  };
+  is_smtp_valid: {
+    value: boolean;
+  };
+  is_mx_found: {
+    value: boolean;
+  };
+  is_syntax_valid: {
+    value: boolean;
+  };
+  autocorrect: string;
+  suggestions: string[];
+  domain_age_days: number;
+  first_name: string;
+  last_name: string;
+  gender: string;
+  country: string;
+  region: string;
+  city: string;
+  timezone: string;
+  local_time: string;
+  utc_time: string;
+  zipcode: string;
+  organization: string;
+  carrier: string;
+  line_type: string;
 }
 
 interface EnzoicResponse {
@@ -104,9 +134,22 @@ export class ThreatAnalysisService {
 
     console.log('🔍 Starting email analysis for:', email);
 
-    // Get user's IP for additional analysis
+    // Get user's IP and location for additional analysis
     const userIP = await this.getUserIP();
     console.log('🌐 User IP detected:', userIP);
+    let userLocation: string | undefined = undefined;
+    try {
+      const ipInfoRes = await fetch(`https://ipinfo.io/${userIP}?token=${API_KEYS.IPINFO_TOKEN}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (ipInfoRes.ok) {
+        const ipInfo: IPInfoResponse = await ipInfoRes.json();
+        if (ipInfo.city || ipInfo.region || ipInfo.country) {
+          userLocation = `${ipInfo.city || ''}${ipInfo.city && (ipInfo.region || ipInfo.country) ? ', ' : ''}${ipInfo.region || ''}${ipInfo.region && ipInfo.country ? ', ' : (!ipInfo.region && ipInfo.country && (ipInfo.city ? ', ' : ''))}${ipInfo.country || ''}`.trim();
+        }
+      }
+    } catch {}
 
     for (let i = 0; i < this.ANALYSIS_STEPS.length; i++) {
       const step = this.ANALYSIS_STEPS[i];
@@ -127,7 +170,7 @@ export class ThreatAnalysisService {
           result = await this.performIPInfoCheck(userIP, step.name);
           break;
         case 'virustotal':
-          result = await this.performVirusTotalCheck(email, step.name);
+          result = await this.performVirusTotalCheck(userIP, step.name);
           break;
         case 'abuseipdb':
           result = await this.performAbuseIPDBCheck(userIP, step.name);
@@ -148,7 +191,9 @@ export class ThreatAnalysisService {
       overallRiskScore,
       threatChecks,
       recommendations,
-      emailReputation
+      emailReputation,
+      userIP,
+      userLocation
     };
 
     console.log('📊 Final Analysis Result:', finalResult);
@@ -191,6 +236,7 @@ export class ThreatAnalysisService {
       let status: 'safe' | 'warning' | 'danger' = 'safe';
       let details = '';
 
+      // Comprehensive email validation
       if (!data.is_valid_format?.value) {
         score = 90;
         status = 'danger';
@@ -199,6 +245,10 @@ export class ThreatAnalysisService {
         score = 70;
         status = 'danger';
         details = '⚠️ Disposable email address detected';
+      } else if (data.is_catchall_email?.value) {
+        score = 60;
+        status = 'warning';
+        details = '📧 Catch-all email address detected';
       } else if (data.is_role_email?.value) {
         score = 40;
         status = 'warning';
@@ -212,6 +262,20 @@ export class ThreatAnalysisService {
         details = `✅ Valid format, quality: ${Math.round(data.quality_score * 100)}%`;
       }
 
+      // SMTP and MX validation
+      if (!data.is_smtp_valid?.value) {
+        score += 20;
+        status = 'warning';
+        details += ' (SMTP validation failed)';
+      }
+
+      if (!data.is_mx_found?.value) {
+        score += 15;
+        status = 'warning';
+        details += ' (No MX record found)';
+      }
+
+      // Deliverability check
       if (data.deliverability === 'UNDELIVERABLE') {
         score += 30;
         status = 'danger';
@@ -220,8 +284,47 @@ export class ThreatAnalysisService {
         details += ' (Deliverable)';
       }
 
+      // Additional risk factors
       if (data.is_free_email?.value) {
         details += ', Free email provider';
+        score += 5;
+      }
+
+      // Domain age analysis
+      if (data.domain_age_days && data.domain_age_days < 30) {
+        score += 15;
+        details += ` (New domain: ${data.domain_age_days} days)`;
+      }
+
+      // Geographic analysis
+      if (data.country) {
+        details += ` | Location: ${data.city || 'Unknown'}, ${data.country}`;
+        
+        // Check for suspicious countries
+        const suspiciousCountries = ['CN', 'RU', 'KP', 'IR', 'SY'];
+        if (suspiciousCountries.includes(data.country)) {
+          score += 20;
+          details += ' (High-risk country)';
+        }
+      }
+
+      // Organization analysis
+      if (data.organization) {
+        details += ` | Org: ${data.organization}`;
+        
+        // Check for suspicious organizations
+        const suspiciousOrgs = ['tor', 'vpn', 'proxy', 'anonymous'];
+        if (suspiciousOrgs.some(keyword => 
+          data.organization.toLowerCase().includes(keyword)
+        )) {
+          score += 25;
+          details += ' (Suspicious organization)';
+        }
+      }
+
+      // Autocorrect suggestions
+      if (data.autocorrect && data.autocorrect !== email) {
+        details += ` | Suggested: ${data.autocorrect}`;
       }
 
       return {
@@ -377,15 +480,15 @@ export class ThreatAnalysisService {
     }
   }
 
-  private static async performVirusTotalCheck(email: string, category: string): Promise<ThreatCheckResult> {
+  private static async performVirusTotalCheck(ip: string, category: string): Promise<ThreatCheckResult> {
     try {
-      console.log('🔍 VirusTotal API - Checking domain for:', email);
-      
-      const domain = email.split('@')[1];
-      const response = await fetch(`https://www.virustotal.com/vtapi/v2/domain/report?apikey=${API_KEYS.VIRUSTOTAL_API_KEY}&domain=${domain}`, {
+      console.log('🔍 VirusTotal API - Checking IP reputation for:', ip);
+
+      const response = await fetch(`https://www.virustotal.com/api/v3/ip_addresses/${ip}`, {
         method: 'GET',
         headers: {
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'x-apikey': API_KEYS.VIRUSTOTAL_API_KEY
         }
       });
 
@@ -393,30 +496,38 @@ export class ThreatAnalysisService {
         throw new Error(`VirusTotal API Error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data: VirusTotalResponse = await response.json();
       console.log('✅ VirusTotal API Success:', data);
-      
+
       let score = 10;
       let status: 'safe' | 'warning' | 'danger' = 'safe';
       let details = '';
 
-      if (data.response_code === 1) {
-        const positives = data.positives || 0;
-        const total = data.total || 0;
-        
-        if (positives > 5) {
+      const stats = data?.data?.attributes?.last_analysis_stats;
+      const reputation = data?.data?.attributes?.reputation ?? 0;
+
+      if (stats) {
+        const malicious = stats.malicious || 0;
+        const suspicious = stats.suspicious || 0;
+        const harmless = stats.harmless || 0;
+        const undetected = stats.undetected || 0;
+        const total = malicious + suspicious + harmless + undetected;
+
+        if (malicious >= 5 || reputation < -10) {
           score = 90;
           status = 'danger';
-          details = `🚨 Domain flagged by ${positives}/${total} security vendors`;
-        } else if (positives > 0) {
-          score = 50;
+          details = `🚨 IP flagged: malicious=${malicious}, suspicious=${suspicious}, total=${total}, reputation=${reputation}`;
+        } else if (malicious > 0 || suspicious > 2 || reputation < 0) {
+          score = 55;
           status = 'warning';
-          details = `⚠️ Domain flagged by ${positives}/${total} security vendors`;
+          details = `⚠️ Some detections: malicious=${malicious}, suspicious=${suspicious}, reputation=${reputation}`;
         } else {
-          details = `✅ Domain clean (0/${total} security vendors flagged)`;
+          score = 10;
+          status = 'safe';
+          details = `✅ Clean per VT: malicious=${malicious}, suspicious=${suspicious}, total=${total}`;
         }
       } else {
-        details = '✅ Domain not found in threat databases';
+        details = '✅ No analysis stats available for this IP';
       }
 
       return {

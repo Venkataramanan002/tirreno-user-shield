@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -6,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { User, Search, Clock, MousePointer, Navigation } from "lucide-react";
 import { useState, useEffect } from "react";
-import { ThreatAnalysisService } from "@/services/threatAnalysisService";
+import { userDataService } from "@/services/userDataService";
 
 const UserBehavior = () => {
   const [searchUser, setSearchUser] = useState("");
@@ -15,31 +14,36 @@ const UserBehavior = () => {
   const [recentUsers, setRecentUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const getUserIP = async (): Promise<string> => {
-    try {
-      const response = await fetch('https://api.ipify.org?format=json');
-      const data = await response.json();
-      console.log('UserBehavior: Real IP fetched:', data.ip);
-      return data.ip;
-    } catch (error) {
-      console.error('UserBehavior: Failed to get user IP:', error);
-      return '192.168.1.100';
-    }
-  };
-
   useEffect(() => {
+    const CACHE_KEY = 'userBehaviorCacheV1';
+
+    // Hydrate from cache first to avoid spinner on tab switch
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Date.now() - (parsed.cachedAt || 0) < 5 * 60 * 1000) { // 5 minutes cache
+          if (parsed.behaviorMetrics) setBehaviorMetrics(parsed.behaviorMetrics);
+          if (parsed.sessionData) setSessionData(parsed.sessionData);
+          if (parsed.recentUsers) setRecentUsers(parsed.recentUsers);
+          setIsLoading(false);
+        }
+      }
+    } catch {}
+
     const fetchRealUserData = async () => {
       try {
         setIsLoading(true);
         console.log('UserBehavior: Starting real data fetch...');
         
-        // Get real user data from localStorage
-        const userData = localStorage.getItem('userOnboardingData');
-        const userEmail = userData ? JSON.parse(userData).email : 'unknown@example.com';
-        const userIP = await getUserIP();
+        // Get user profile from service
+        const profile = await userDataService.initializeUserData();
+        if (!profile) {
+          console.error('UserBehavior: No profile available');
+          return;
+        }
         
-        console.log('UserBehavior: Real user email:', userEmail);
-        console.log('UserBehavior: Real user IP:', userIP);
+        console.log('UserBehavior: Using real user profile:', profile);
         
         // Generate real session data based on current time
         const now = new Date();
@@ -57,7 +61,6 @@ const UserBehavior = () => {
           });
         }
         setSessionData(sessions);
-        console.log('UserBehavior: Real session data:', sessions);
 
         // Real behavior metrics with actual calculations
         const totalSessions = sessions.reduce((sum, s) => sum + s.sessions, 0);
@@ -66,7 +69,7 @@ const UserBehavior = () => {
         const bounceRate = `${Math.floor(Math.random() * 20) + 25}%`;
         const suspiciousPatterns = Math.floor(totalSessions * 0.08); // 8% of sessions
         
-        setBehaviorMetrics([
+        const nextBehaviorMetrics = [
           { 
             metric: "Average Session Duration", 
             value: avgSessionDuration, 
@@ -87,20 +90,19 @@ const UserBehavior = () => {
             value: suspiciousPatterns.toString(), 
             trend: `+${Math.floor(Math.random() * 20) + 8}%` 
           }
-        ]);
+        ];
+        setBehaviorMetrics(nextBehaviorMetrics);
 
         // Generate real user data with actual threat analysis
         const realUsers = [];
-        const testEmails = [userEmail, 'admin@company.com', 'security@enterprise.org', 'user@domain.com'];
+        const testEmails = [profile.email, 'admin@company.com', 'security@enterprise.org', 'user@domain.com'];
         
         for (let i = 0; i < testEmails.length; i++) {
           const email = testEmails[i];
           console.log(`UserBehavior: Analyzing user ${i + 1}: ${email}`);
           
           try {
-            const threatResult = await ThreatAnalysisService.performEmailAnalysis(email, () => {});
-            const riskScore = threatResult.overallRiskScore;
-            console.log(`UserBehavior: Risk score for ${email}:`, riskScore);
+            const riskScore = profile.riskScore;
             
             // Get real device info
             const deviceInfo = `${navigator.userAgent.includes('Chrome') ? 'Chrome' : 'Browser'}/${navigator.platform}`;
@@ -110,7 +112,7 @@ const UserBehavior = () => {
               email: email,
               riskScore: riskScore,
               status: riskScore > 70 ? "suspicious" : riskScore > 40 ? "warning" : "normal",
-              location: i === 0 ? "Your Location (Live)" : `Location ${i + 1}`,
+              location: i === 0 ? profile.location : `Location ${i + 1}`,
               device: deviceInfo,
               lastActivity: `${Math.floor(Math.random() * 15) + 1} min ago`,
               anomalies: riskScore > 70 ? 
@@ -137,6 +139,16 @@ const UserBehavior = () => {
         
         setRecentUsers(realUsers);
         console.log('UserBehavior: Real user analysis complete:', realUsers);
+
+        // Persist to cache (5 minutes)
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            behaviorMetrics: nextBehaviorMetrics,
+            sessionData: sessions,
+            recentUsers: realUsers,
+            cachedAt: Date.now()
+          }));
+        } catch {}
         
       } catch (error) {
         console.error('UserBehavior: Failed to fetch real user behavior data:', error);
@@ -166,9 +178,16 @@ const UserBehavior = () => {
     };
 
     fetchRealUserData();
-    
-    // Refresh every 60 seconds
-    const interval = setInterval(fetchRealUserData, 60000);
+    // Only refresh if cache is expired (5 minutes)
+    const interval = setInterval(() => {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { cachedAt } = JSON.parse(cached);
+        if (Date.now() - (cachedAt || 0) >= 5 * 60 * 1000) {
+          fetchRealUserData();
+        }
+      }
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 

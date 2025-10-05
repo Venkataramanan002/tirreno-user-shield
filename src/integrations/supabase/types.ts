@@ -38,6 +38,42 @@ export type Database = {
         }
         Relationships: []
       }
+      oauth_users: {
+        Row: {
+          id: string
+          user_id: string
+          email: string | null
+          name: string | null
+          picture: string | null
+          provider: string
+          provider_sub: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          email?: string | null
+          name?: string | null
+          picture?: string | null
+          provider: string
+          provider_sub: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          email?: string | null
+          name?: string | null
+          picture?: string | null
+          provider?: string
+          provider_sub?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       security_events: {
         Row: {
           created_at: string

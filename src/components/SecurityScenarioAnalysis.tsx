@@ -3,257 +3,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Shield, Bot, User, Clock, MapPin } from "lucide-react";
 import { useState, useEffect } from "react";
-import { ThreatAnalysisService } from "@/services/threatAnalysisService";
-import { setCurrentUser } from "@/services/mockApiService";
+import { userDataService, UserProfile, SecurityEvent, ThreatIntelligence, BotDetection } from "@/services/userDataService";
 
-interface UserSession {
-  userId: string;
-  email: string;
-  deviceType: string;
-  ipAddress: string;
-  location: string;
-  deviceFingerprint: string;
-  sessionStart: string;
-  riskScore: number;
-  riskLevel: string;
-}
-
-interface SecurityEvent {
-  id: string;
-  timestamp: string;
-  eventType: string;
-  userId?: string;
-  ipAddress: string;
-  location: string;
-  deviceFingerprint?: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  status: string;
-  details: string;
-  riskScore?: number;
-}
-
-interface ThreatIntelligence {
-  ipAddress: string;
-  threatType: string;
-  confidenceScore: number;
-  riskLevel: string;
-  lastSeen: string;
-  associatedCampaigns: string[];
-}
-
-interface BotDetection {
-  ipAddress: string;
-  botScore: number;
-  botType: string;
-  detectionReasons: string[];
-  recommendedAction: string;
-  confidence: string;
-}
+// Interfaces are now imported from userDataService
 
 const SecurityScenarioAnalysis = () => {
-  const [userSession, setUserSession] = useState<UserSession | null>(null);
+  const [userSession, setUserSession] = useState<UserProfile | null>(null);
   const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
   const [threatIntelligence, setThreatIntelligence] = useState<ThreatIntelligence[]>([]);
   const [botDetection, setBotDetection] = useState<BotDetection[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState("");
 
-  const getUserIP = async (): Promise<string> => {
-    try {
-      const response = await fetch('https://api.ipify.org?format=json');
-      const data = await response.json();
-      return data.ip;
-    } catch (error) {
-      console.error('Failed to get user IP:', error);
-      return '8.8.8.8'; // Fallback IP
-    }
-  };
-
-  const generateRandomIP = (): string => {
-    return `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
-  };
-
-  const getDynamicLocation = (email: string): string => {
-    const domains = email.split('@')[1] || '';
-    
-    if (domains.includes('.gov')) return "Washington, DC, USA";
-    if (domains.includes('.edu')) return "Boston, MA, USA";
-    if (domains.includes('.co.uk')) return "London, UK";
-    if (domains.includes('.de')) return "Berlin, Germany";
-    if (domains.includes('.au')) return "Sydney, Australia";
-    
-    const locations = ["New York, USA", "San Francisco, USA", "London, UK", "Tokyo, Japan", "Sydney, Australia"];
-    return locations[Math.floor(Math.random() * locations.length)];
-  };
-
-  const generateThreatIntelligence = (userIP: string): ThreatIntelligence[] => {
-    const threats = [
-      {
-        ipAddress: generateRandomIP(),
-        threatType: "Botnet Command & Control, Spam Source",
-        confidenceScore: Math.floor(Math.random() * 20) + 80, // 80-100
-        riskLevel: "High",
-        lastSeen: new Date(Date.now() - Math.random() * 86400000).toISOString().split('T')[0] + " " + new Date().toTimeString().split(' ')[0],
-        associatedCampaigns: ["Phishing Kit Alpha", "Credential Harvesting Campaign"]
-      }
-    ];
-    
-    return threats;
-  };
-
-  const generateBotDetection = (userIP: string): BotDetection[] => {
-    const bots = [
-      {
-        ipAddress: generateRandomIP(),
-        botScore: Math.floor(Math.random() * 30) + 70, // 70-100
-        botType: "Automated Scraper",
-        detectionReasons: [
-          "Extreme Request Rate",
-          "Lack of typical human mouse/keyboard events",
-          "Unusual sequential access pattern to user profiles"
-        ],
-        recommendedAction: "Block traffic from this IP address immediately",
-        confidence: "High"
-      }
-    ];
-    
-    return bots;
-  };
+  // Helper functions moved to userDataService
 
   useEffect(() => {
     const initializeData = async () => {
-      // Get user email from localStorage (from onboarding)
-      const userData = localStorage.getItem('userOnboardingData');
-      if (userData) {
-        const parsedData = JSON.parse(userData);
-        const userEmail = parsedData.email;
-        
-        console.log('Initializing with user email:', userEmail);
-        
-        // Set current user for API services
-        setCurrentUser(userEmail);
-        
-        // Get real user IP
-        const realUserIP = await getUserIP();
-        console.log('Real user IP:', realUserIP);
-        
-        // Calculate dynamic risk score
-        let riskScore = Math.random() * 30 + 30; // Base score 30-60
-        if (userEmail.includes('admin') || userEmail.includes('root')) riskScore += 25;
-        if (userEmail.includes('.gov') || userEmail.includes('.mil')) riskScore += 20;
-        if (userEmail.includes('temp') || userEmail.includes('test')) riskScore += 30;
-        if (userEmail.includes('security') || userEmail.includes('it')) riskScore += 15;
-        if (userEmail.length < 10) riskScore += 10;
-        riskScore = Math.min(100, Math.round(riskScore));
-        
-        // Create user session with real data
-        const session: UserSession = {
-          userId: `USER_${userEmail.split('@')[0]}`,
-          email: userEmail,
-          deviceType: `Desktop (${navigator.userAgent.includes('Chrome') ? 'Chrome' : 'Browser'}, ${navigator.platform})`,
-          ipAddress: realUserIP,
-          location: getDynamicLocation(userEmail),
-          deviceFingerprint: `FP_${Math.random().toString(36).substring(7)}`,
-          sessionStart: new Date().toISOString(),
-          riskScore,
-          riskLevel: riskScore > 70 ? "Critical" : riskScore > 40 ? "High" : "Medium"
-        };
-        
-        setUserSession(session);
-        
-        // Generate security events
-        const events: SecurityEvent[] = [
-          {
-            id: `evt_${Date.now()}_001`,
-            timestamp: new Date().toISOString(),
-            eventType: "User Behavior",
-            userId: session.userId,
-            ipAddress: realUserIP,
-            location: session.location,
-            deviceFingerprint: session.deviceFingerprint,
-            severity: 'low',
-            status: "normal",
-            details: `User lands on homepage - Page View: /homepage, Referrer: direct`,
-          },
-          {
-            id: `evt_${Date.now()}_002`,
-            timestamp: new Date(Date.now() - 15000).toISOString(), // 15 seconds ago
-            eventType: "Authentication Success",
-            userId: session.userId,
-            ipAddress: realUserIP,
-            location: session.location,
-            severity: riskScore > 50 ? 'medium' : 'low',
-            status: "success",
-            details: `Successful login - Username: ${userEmail}, Method: Password, Latency: ${Math.floor(Math.random() * 500) + 200}ms`,
-            riskScore
-          },
-          {
-            id: `evt_${Date.now()}_003`,
-            timestamp: new Date(Date.now() - 5000).toISOString(), // 5 seconds ago
-            eventType: "Risk Assessment",
-            userId: session.userId,
-            ipAddress: realUserIP,
-            location: session.location,
-            severity: riskScore > 70 ? 'high' : riskScore > 40 ? 'medium' : 'low',
-            status: "detected",
-            details: `Risk score calculated: ${riskScore}/100 for user profile analysis`,
-            riskScore
-          }
-        ];
-        
-        setSecurityEvents(events);
-        setThreatIntelligence(generateThreatIntelligence(realUserIP));
-        setBotDetection(generateBotDetection(realUserIP));
-        
-        // Perform real threat analysis
-        setIsAnalyzing(true);
-        try {
-          await ThreatAnalysisService.performEmailAnalysis(
-            userEmail,
-            (step, progress) => {
-              setAnalysisStep(`${step} (${progress}%)`);
-            }
-          );
-        } catch (error) {
-          console.error('Threat analysis failed:', error);
-        } finally {
-          setIsAnalyzing(false);
-          setAnalysisStep("");
+      setIsAnalyzing(true);
+      setAnalysisStep("Initializing user data...");
+      
+      try {
+        const profile = await userDataService.initializeUserData();
+        if (profile) {
+          setUserSession(profile);
+          setSecurityEvents(userDataService.getSecurityEvents());
+          setThreatIntelligence(userDataService.getThreatIntelligence());
+          setBotDetection(userDataService.getBotDetection());
         }
-      } else {
-        // Fallback to demo data if no user data found
-        console.log('No user data found, using demo data');
-        const demoSession: UserSession = {
-          userId: "USER_demo",
-          email: "demo@example.com",
-          deviceType: "Desktop (Chrome, Windows 10)",
-          ipAddress: "203.0.113.10",
-          location: "San Francisco, USA",
-          deviceFingerprint: "FP_DEMO123",
-          sessionStart: new Date().toISOString(),
-          riskScore: 43,
-          riskLevel: "Medium"
-        };
-        setUserSession(demoSession);
-        
-        // Generate demo events
-        const demoEvents: SecurityEvent[] = [
-          {
-            id: "evt_demo_001",
-            timestamp: new Date().toISOString(),
-            eventType: "User Behavior",
-            userId: "USER_demo",
-            ipAddress: "203.0.113.10",
-            location: "San Francisco, USA",
-            deviceFingerprint: "FP_DEMO123",
-            severity: "low",
-            status: "normal",
-            details: "User lands on homepage - Page View: /homepage, Referrer: direct"
-          }
-        ];
-        setSecurityEvents(demoEvents);
-        setThreatIntelligence(generateThreatIntelligence("203.0.113.10"));
-        setBotDetection(generateBotDetection("203.0.113.10"));
+      } catch (error) {
+        console.error('Failed to initialize user data:', error);
+      } finally {
+        setIsAnalyzing(false);
+        setAnalysisStep("");
       }
     };
 

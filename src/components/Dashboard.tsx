@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Shield, Users, Bot, AlertTriangle, TrendingUp, Activity } from "lucide-react";
 import { useState, useEffect } from "react";
-import { ThreatAnalysisService } from "@/services/threatAnalysisService";
+import { userDataService } from "@/services/userDataService";
 
 const Dashboard = () => {
   const [metrics, setMetrics] = useState<any>(null);
@@ -15,28 +15,44 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const CACHE_KEY = 'dashboardMetricsCacheV1';
+
+    // Hydrate immediately from cache to avoid spinner on tab switch
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { metrics: cm, threatTimeline: ct, riskDistribution: cr, topThreats: ctt, cachedAt } = JSON.parse(cached);
+        if (cm && Date.now() - (cachedAt || 0) < 5 * 60 * 1000) { // 5 minutes cache
+          setMetrics(cm);
+          setThreatTimeline(ct || []);
+          setRiskDistribution(cr || []);
+          setTopThreats(ctt || []);
+          setIsLoading(false);
+        }
+      }
+    } catch {}
+
     const fetchRealData = async () => {
       try {
         setIsLoading(true);
         
-        // Get real user data from localStorage
-        const userData = localStorage.getItem('userOnboardingData');
-        const userEmail = userData ? JSON.parse(userData).email : 'demo@example.com';
+        // Get user profile from service
+        const profile = await userDataService.initializeUserData();
+        if (!profile) {
+          setError("Unable to load user data");
+          return;
+        }
         
-        console.log('Dashboard: Using real user email:', userEmail);
-        
-        // Perform real threat analysis
-        const threatResult = await ThreatAnalysisService.performEmailAnalysis(userEmail, () => {});
-        console.log('Dashboard: Real threat analysis result:', threatResult);
+        console.log('Dashboard: Using real user profile:', profile);
         
         // Calculate real metrics based on actual analysis
-        const riskScore = threatResult.overallRiskScore;
+        const riskScore = profile.riskScore;
         const activeUsers = Math.floor(Math.random() * 300) + 1200; // Real user count
         const threatsDetected = Math.floor(riskScore * 3) + 50; // Based on real risk
         const threatsBlocked = Math.floor(threatsDetected * 0.87); // 87% block rate
         const botTraffic = Math.floor(activeUsers * 0.15); // 15% bot traffic
         
-        setMetrics({
+        const nextMetrics = {
           activeUsers,
           threatsDetected,
           threatsBlocked,
@@ -44,8 +60,12 @@ const Dashboard = () => {
           userGrowth: riskScore > 50 ? `+${Math.floor(Math.random() * 25) + 15}%` : `+${Math.floor(Math.random() * 15) + 5}%`,
           threatGrowth: `+${Math.floor(riskScore / 5) + 8}%`,
           blockRate: `${Math.round((threatsBlocked / threatsDetected) * 100)}%`,
-          botPercentage: `15%`
-        });
+          botPercentage: `15%`,
+          userIP: profile.ipAddress,
+          userLocation: profile.location
+        };
+        setMetrics(nextMetrics);
+        setError(null);
 
         // Generate real threat timeline based on current time and risk
         const now = new Date();
@@ -65,19 +85,20 @@ const Dashboard = () => {
         setThreatTimeline(timeline);
 
         // Real risk distribution based on actual analysis
-        setRiskDistribution([
+        const riskDist = [
           { name: 'Low Risk', value: riskScore < 30 ? 65 : 25, color: '#10b981' },
           { name: 'Medium Risk', value: riskScore >= 30 && riskScore < 70 ? 55 : 30, color: '#f59e0b' },
           { name: 'High Risk', value: riskScore >= 70 ? 50 : 15, color: '#ef4444' },
           { name: 'Critical', value: riskScore >= 90 ? 30 : 10, color: '#dc2626' }
-        ]);
+        ];
+        setRiskDistribution(riskDist);
 
         // Real top threats based on actual threat analysis results
         const realThreats = [
           { 
-            type: `Email Analysis: ${threatResult.emailReputation.toUpperCase()}`, 
+            type: `Email Analysis: ${profile.email}`, 
             count: Math.floor(riskScore / 3) + 15, 
-            severity: threatResult.emailReputation === 'compromised' ? 'critical' : threatResult.emailReputation === 'suspicious' ? 'high' : 'medium' 
+            severity: riskScore > 70 ? 'critical' : riskScore > 40 ? 'high' : 'medium' 
           },
           { 
             type: 'Real-time IP Monitoring', 
@@ -102,6 +123,17 @@ const Dashboard = () => {
         ];
         setTopThreats(realThreats);
 
+        // Persist to cache (5 minutes), so tab switches render instantly
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            metrics: nextMetrics,
+            threatTimeline: timeline,
+            riskDistribution: riskDist,
+            topThreats: realThreats,
+            cachedAt: Date.now()
+          }));
+        } catch {}
+        
         console.log('Dashboard: Real data loaded successfully');
         
       } catch (err) {
@@ -113,9 +145,16 @@ const Dashboard = () => {
     };
 
     fetchRealData();
-    
-    // Refresh data every 30 seconds
-    const interval = setInterval(fetchRealData, 30000);
+    // Only refresh if cache is expired (5 minutes)
+    const interval = setInterval(() => {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { cachedAt } = JSON.parse(cached);
+        if (Date.now() - (cachedAt || 0) >= 5 * 60 * 1000) {
+          fetchRealData();
+        }
+      }
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -143,6 +182,27 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* User IP and Location */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-slate-200">Your Public IP</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">{metrics?.userIP || 'Detecting...'}</div>
+            <p className="text-xs text-slate-400">Fetched live via IPify</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-slate-200">Your Location</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">{metrics?.userLocation || 'Resolving...'}</div>
+            <p className="text-xs text-slate-400">Resolved via IPInfo</p>
+          </CardContent>
+        </Card>
+      </div>
       {/* Real-time Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="bg-slate-800/50 border-slate-700">
